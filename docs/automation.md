@@ -1,6 +1,6 @@
 # Automação com GitHub Actions e Neon
 
-O bot roda em um runner temporário do GitHub e encerra ao concluir. O Neon guarda o estado entre execuções. A interface roda localmente e acessa o mesmo Neon quando DATABASE_URL está no .env privado. Não há servidor público permanente.
+O bot roda em um runner temporário do GitHub e encerra ao concluir. O Neon guarda o estado entre execuções. A interface pública roda em funções Flask no Vercel Hobby e usa o mesmo Neon; o computador pode ficar desligado. [Publicação da interface](vercel.md).
 
 1. Mantenha o código na branch main e habilite Actions no repositório.
 2. Crie um banco no plano gratuito Neon e copie a conexão PostgreSQL com SSL para a Secret DATABASE_URL.

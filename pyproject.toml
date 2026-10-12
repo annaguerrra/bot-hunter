@@ -1,0 +1,3 @@
+# Entrada explícita da interface; main.py continua sendo o bot de linha de comando.
+[tool.vercel]
+entrypoint = "app:app"

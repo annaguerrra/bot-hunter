@@ -12,3 +12,5 @@ logs/
 data/salary_review.json
 data/*.key
 data/*.bak
+.vercel/
+public/

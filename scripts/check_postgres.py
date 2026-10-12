@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import uuid
+from unittest.mock import patch
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -81,6 +82,26 @@ def check(url):
                 except ValueError:
                     pass
                 assert cloud.search('qa-search', owner)
+                # Simulamos duas funções sem disco gravável compartilhando sessões no Neon.
+                from web import create_app
+                with patch.dict(os.environ, {'DATABASE_URL': isolated, 'HUNTER_SERVERLESS': 'true',
+                                             'GEMINI_ENABLED': 'false'}, clear=True), \
+                        patch.object(Path, 'mkdir', side_effect=AssertionError('readonly function')):
+                    first_app = create_app()
+                    second_app = None
+                    try:
+                        first_store = first_app.extensions['store']
+                        token = first_store.new_session(owner)
+                        first_store.start_search('qa-active-serverless', {}, owner)
+                        second_app = create_app()
+                        assert first_app.secret_key == second_app.secret_key
+                        second_store = second_app.extensions['store']
+                        assert second_store.session_user(token)['id'] == owner
+                        assert second_store.search('qa-active-serverless', owner)['status'] == 'running'
+                    finally:
+                        first_app.extensions['executor'].shutdown(wait=True)
+                        if second_app:
+                            second_app.extensions['executor'].shutdown(wait=True)
                 print({'postgres_contract': 'passed', 'migration': 'passed', 'rows_copied': counts, 'isolation': 'passed', 'budgets': 'passed'})
         finally:
             admin.execute('DROP SCHEMA ' + schema + ' CASCADE')

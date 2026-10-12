@@ -2,9 +2,19 @@
 
 Busca vagas internacionais com filtros por região, país, estado e cidade, perfis de engenharia de produto e produção, termos personalizados e piso de **R$ 7.000 mensais**. Salários em outras moedas são convertidos; salários ausentes, estimados ou ambíguos ficam separados para análise e não geram alertas.
 
-A arquitetura atual usa **GitHub Actions para executar o bot** e **Neon PostgreSQL para persistir contas, preferências, chaves, consumo, resultados e deduplicação**. A execução automática funciona com o computador desligado. A interface de configuração e consulta continua local: o Actions executa tarefas, não hospeda um site.
+A arquitetura usa **Vercel Hobby para a interface pública**, **GitHub Actions para executar o bot** e **Neon PostgreSQL para persistir contas, preferências, chaves, consumo, resultados e deduplicação**. O site e a execução automática funcionam com o computador desligado. O Hobby atende uso pessoal e não comercial; os limites gratuitos dos três serviços continuam valendo. [Plano Hobby](https://vercel.com/docs/plans/hobby).
 
-## Abrir a interface
+## Publicar a interface
+
+Importe `annaguerrra/bot-hunter` no Vercel, escolha **Flask** e mantenha a raiz `./`. Em **Settings → Environment Variables**, cadastre **DATABASE_URL** com a conexão privada Neon para **Production**. Essa variável precisa existir também no Vercel: Secrets do GitHub não são transferidas para ele. Marque como Sensitive quando a opção estiver disponível.
+
+Depois publique a versão atual da branch `main`. Se já houve erro, use **Deployments → Redeploy** na versão com a correção, ou aguarde o deploy automático do novo commit. Abra o domínio de produção exibido pelo Vercel e compartilhe esse link. O `pyproject.toml` aponta explicitamente para `app:app`; `main.py` continua sendo o bot de linha de comando.
+
+As integrações cadastradas ficam privadas no Neon, acessíveis apenas pela administração, e não precisam ser digitadas novamente. Contas e senhas anteriores continuam válidas. Gemini fica opcional e desligado por padrão. E-mails solicitados pelo site entram na fila Gmail, processada pelo Actions às 9h17 em dias úteis ou manualmente. Telegram envia pelo site em lotes confirmados individualmente.
+
+Veja [o passo a passo do Vercel e suas variáveis](docs/vercel.md). Não copie `.env` ou bancos para o repositório nem use variáveis públicas para credenciais.
+
+## Desenvolvimento local opcional
 
 No Windows, clique duas vezes em **INICIAR.cmd**, ou execute:
 
@@ -81,7 +91,9 @@ Cotas Jooble padrão: **12 por usuário/dia, 36 compartilhadas/dia e 6 por chave
 
 SerpAPI: **até 3 novas consultas por dia e 250 por mês**, compartilhadas entre painel e automação, incluindo paginação, tentativas com erro e respostas vazias. Três consultas em 22 dias úteis equivalem a aproximadamente 66 consultas, deixando margem. O contador usa mês civil de São Paulo: confira o ciclo e consumo da conta no provedor e registre uso externo no painel. [Plano gratuito SerpAPI](https://serpapi.com/pricing).
 
-Quando a cota acaba, **Explorar sem Jooble** oferece histórico, favoritos, sites de empresas e links de pesquisa no Google e LinkedIn sem consumir a API Jooble. Resultados podem encerrar: confira o anúncio original. Termos em outros idiomas ampliam a busca, mas nenhuma fonte garante todas as vagas do mundo. [Detalhes de uso](docs/usage.md).
+Quando a cota acaba, **Explorar sem Jooble** oferece histórico, favoritos, sites de empresas e links de pesquisa no Google e LinkedIn sem consumir a API Jooble nem Gemini. Outras fontes selecionadas seguem com seus próprios limites; a aplicação não liga Gemini automaticamente. Anúncios podem encerrar: confira o original. Termos em outros idiomas ampliam a busca, mas nenhuma fonte garante todas as vagas do mundo. [Detalhes de uso](docs/usage.md).
+
+No site público, buscas têm um prazo de 240 segundos para reservar tempo de gravação antes do limite da função. Resultados de fontes concluídas ficam salvos; se o prazo acabar, as notas e sugestões orientam uma busca mais específica. Uma interrupção forçada da plataforma pode impedir a gravação; após seis minutos, buscas ainda pendentes aparecem como interrompidas, sem afetar buscas de outras contas.
 
 ## Comandos e testes
 
@@ -95,6 +107,7 @@ python main.py
 python -m unittest discover -s tests -v
 node --check static/app.js
 node --check static/onboarding.js
+node tests/check_notifications.cjs
 ```
 
 Os comandos `--test-telegram`, `--test-email` e execução completa enviam mensagens reais para os destinos da CLI no `.env`. O preview não envia alertas. A automação multiusuário usa `python scripts/cloud_alerts.py --search`, não o histórico local da CLI.
