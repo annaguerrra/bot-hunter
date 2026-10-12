@@ -93,11 +93,18 @@ async function refreshConfig() {
   $('#notify-limit').textContent = `Até ${state.config.limits?.max_notify_jobs || 15} vagas por envio. O Telegram recebe mensagens divididas e espaçadas.`;
   ["google", "jooble", "gemini"].forEach((name) => $("#" + name + "-status").className = "source-dot " + (state.config.integrations[name] ? "ready" : "pending"));
   $("#google-setup-hint").classList.toggle("hidden", state.config.integrations.google);
-  const previousJoobleCountry = $("#jooble-country").value || "BR";
-  $("#jooble-country").innerHTML = state.config.jooble_markets.map((country) => `<option value="${esc(country.code)}">${esc(country.name)}</option>`).join("");
-  $("#jooble-country").value = previousJoobleCountry;
+  const previousJoobleCountry = $("#jooble-country").value;
+  const pendingJoobleMarkets = state.config.jooble_markets.filter((country) => !state.config.jooble_countries.includes(country.code));
+  $("#jooble-country").innerHTML = pendingJoobleMarkets.length
+    ? pendingJoobleMarkets.map((country) => `<option value="${esc(country.code)}">${esc(country.name)}</option>`).join("")
+    : '<option value="">Todos os países já cadastrados</option>';
+  $("#jooble-country").value = pendingJoobleMarkets.some((country) => country.code === previousJoobleCountry)
+    ? previousJoobleCountry : pendingJoobleMarkets[0]?.code || "";
+  $("#jooble-country").disabled = !pendingJoobleMarkets.length;
+  $("#jooble-key").disabled = !pendingJoobleMarkets.length;
+  $("#jooble-form button").disabled = !pendingJoobleMarkets.length;
   $("#jooble-markets").textContent = "Países configurados: " + (state.config.jooble_countries.map(countryName).join(", ") || "nenhum ainda");
-  $("#jooble-checklist").innerHTML = `<p>${state.config.jooble_countries.filter((code) => state.config.jooble_markets.some((market) => market.code === code)).length} de ${state.config.jooble_markets.length} mercados cadastrados. Cada solicitação depende da aprovação da Jooble.</p><div class="market-list">${state.config.jooble_markets.map((market) => `<div class="market-row"><span>${state.config.jooble_countries.includes(market.code) ? "✓" : "○"} ${esc(market.name)} <small>${esc(market.code)}</small></span><a href="${esc(market.signup_url)}" target="_blank" rel="noopener noreferrer">Solicitar chave ↗</a><button type="button" class="text-button" data-jooble-market="${esc(market.code)}">Cadastrar</button></div>`).join("")}</div>`;
+  $("#jooble-checklist").innerHTML = `<p>${state.config.jooble_countries.filter((code) => state.config.jooble_markets.some((market) => market.code === code)).length} de ${state.config.jooble_markets.length} mercados cadastrados. Cada solicitação depende da aprovação da Jooble.</p><div class="market-list">${state.config.jooble_markets.map((market) => `<div class="market-row"><span>${state.config.jooble_countries.includes(market.code) ? "✓" : "○"} ${esc(market.name)} <small>${esc(market.code)}</small></span><a href="${esc(market.signup_url)}" target="_blank" rel="noopener noreferrer">Solicitar chave ↗</a><button type="button" class="text-button" data-jooble-market="${esc(market.code)}" ${state.config.jooble_countries.includes(market.code) ? 'disabled' : ''}>${state.config.jooble_countries.includes(market.code) ? 'Cadastrado' : 'Cadastrar'}</button></div>`).join("")}</div>`;
   updateJoobleSignup();
   renderCompanies();
   renderIntegrations();
@@ -407,10 +414,11 @@ function updateJoobleSignup() {
   const code = $("#jooble-country").value;
   const market = state.config.jooble_markets.find((item) => item.code === code);
   $("#jooble-signup-link").href = market?.signup_url || "https://jooble.org/api/about";
+  $("#jooble-signup-link").classList.toggle("hidden", !market);
 }
 $("#jooble-checklist").addEventListener("click", (event) => {
   const button = event.target.closest("[data-jooble-market]");
-  if (!button) return;
+  if (!button || button.disabled) return;
   $("#jooble-country").value = button.dataset.joobleMarket;
   updateJoobleSignup();
   $("#jooble-form").scrollIntoView({ behavior: "smooth", block: "center" });
@@ -419,6 +427,7 @@ $("#jooble-checklist").addEventListener("click", (event) => {
 $("#jooble-country").addEventListener("change", updateJoobleSignup);
 $("#jooble-form").addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!$("#jooble-country").value) return;
   guarded(async () => {
     const button = $("#jooble-form button");
     button.disabled = true;
@@ -427,7 +436,7 @@ $("#jooble-form").addEventListener("submit", (event) => {
       $("#jooble-key").value = "";
       await refreshConfig();
       toast("Chave regional salva. O país está disponível nas próximas buscas da Jooble.");
-    } finally { button.disabled = false; }
+    } finally { button.disabled = !$("#jooble-country").value; }
   });
 });
 

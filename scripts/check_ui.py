@@ -84,18 +84,27 @@ with sync_playwright() as runtime:
     expect(page.locator("#google-form")).to_be_visible()
     expect(page.locator("#jooble-form")).to_be_visible()
     expect(page.locator("#gemini-form")).to_be_visible()
-    expect(page.locator("#jooble-country option")).to_have_count(66)
+    config = page.evaluate("async () => (await fetch('/api/config')).json()")
+    pending_markets = [market for market in config['jooble_markets'] if market['code'] not in config['jooble_countries']]
+    expect(page.locator("#jooble-country option")).to_have_count(len(pending_markets) or 1)
     expect(page.locator("#jooble-checklist .market-row")).to_have_count(66)
     expect(page.locator('#jooble-country option[value="CN"]')).to_have_count(0)
-    page.locator('[data-jooble-market="US"]').click()
-    expect(page.locator("#jooble-country")).to_have_value("US")
-    expect(page.locator("#jooble-signup-link")).to_have_attribute("href", "https://jooble.org/api/about")
-    page.locator("#jooble-country").select_option("BR")
+    for code in config['jooble_countries']:
+        expect(page.locator(f'#jooble-country option[value="{code}"]')).to_have_count(0)
+    if pending_markets:
+        market = pending_markets[0]
+        page.locator(f'[data-jooble-market="{market["code"]}"]').click()
+        expect(page.locator("#jooble-country")).to_have_value(market['code'])
+        expect(page.locator("#jooble-signup-link")).to_have_attribute("href", market['signup_url'])
+        if len(pending_markets) > 1:
+            market = pending_markets[1]
+            page.locator("#jooble-country").select_option(market['code'])
+            expect(page.locator("#jooble-signup-link")).to_have_attribute("href", market['signup_url'])
+    else:
+        expect(page.locator("#jooble-country")).to_be_disabled()
+        expect(page.locator("#jooble-form button")).to_be_disabled()
+        expect(page.locator("#jooble-signup-link")).to_be_hidden()
     page.locator("#gemini-form").scroll_into_view_if_needed()
-    expect(page.locator("#jooble-country")).to_have_value("BR")
-    page.locator("#jooble-country").select_option("DE")
-    expect(page.locator("#jooble-signup-link")).to_have_attribute("href", "https://de.jooble.org/api/about")
-    page.locator("#jooble-country").select_option("BR")
     page.screenshot(path=str(OUT / "desktop-integrations.png"), full_page=True)
     page.locator('a.nav-link[data-view="history"]').click()
     expect(page.locator("#history-list .history-row").first).to_be_visible()
