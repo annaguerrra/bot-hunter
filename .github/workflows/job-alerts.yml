@@ -1,71 +1,67 @@
-name: Enviar vagas novas
-
-# EDITE AQUI se quiser mudar a frequência automática de envio.
-# Atualmente: 9h17, de segunda a sexta, no horário de São Paulo.
+name: Buscar vagas e enviar fila Gmail
 on:
-  workflow_dispatch: # Também permite executar manualmente na aba Actions.
+  workflow_dispatch:
+    inputs:
+      search:
+        description: Buscar novas vagas além de enviar os e-mails pendentes
+        type: boolean
+        default: true
   schedule:
+    # Segunda a sexta-feira, às 9h17 no horário de Brasília.
     - cron: '17 9 * * 1-5'
-      timezone: 'America/Sao_Paulo'
-
+      timezone: America/Sao_Paulo
 permissions:
-  contents: write # Necessário para versionar o histórico de vagas enviadas.
-
-# Evita duas execuções simultâneas disputando o mesmo histórico.
+  contents: read
 concurrency:
   group: job-alerts
   cancel-in-progress: false
-
 jobs:
   send-jobs:
+    # Ative após a migração. O runner guarda consumo e deduplicação no Neon.
+    if: vars.CLOUD_ALERTS_ENABLED != 'false'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-
-      - name: Instalar dependências
-        run: pip install -r requirements.txt
-
-      - name: Buscar vagas e enviar por Telegram e e-mail
-        # Secrets = dados privados; vars = opções editáveis do robô.
-        # Configure ambos em Settings > Secrets and variables > Actions.
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Consultar fontes e enviar alertas com estado no Neon
         env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SEND_TELEGRAM: ${{ vars.SEND_TELEGRAM || 'true' }}
           SEND_EMAIL: ${{ vars.SEND_EMAIL || 'true' }}
+          EMAIL_PROVIDER: smtp
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
           EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
           SMTP_HOST: ${{ vars.SMTP_HOST || 'smtp.gmail.com' }}
           SMTP_PORT: ${{ vars.SMTP_PORT || '465' }}
-          JOB_LOCATION: ${{ vars.JOB_LOCATION }}
-          JOB_LOCATIONS: ${{ vars.JOB_LOCATIONS }}
-          JOB_KEYWORDS: ${{ vars.JOB_KEYWORDS || 'engenheiro de produto;engenheiro de produção' }}
+          GEMINI_ENABLED: ${{ vars.GEMINI_ENABLED || 'false' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.1-flash-lite' }}
+          GEMINI_SEARCH_MODEL: ${{ vars.GEMINI_SEARCH_MODEL }}
+          JOOBLE_KEYS_JSON: ${{ secrets.JOOBLE_KEYS_JSON }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          HUNTER_CONFIG_ENV_PRIORITY: 'true'
+          SERPAPI_DAILY_LIMIT: ${{ vars.SERPAPI_DAILY_LIMIT || '3' }}
+          SERPAPI_MONTHLY_LIMIT: ${{ vars.SERPAPI_MONTHLY_LIMIT || '250' }}
+          JOB_KEYWORDS: ${{ vars.JOB_KEYWORDS || 'product engineer;production engineer;engenheiro de produto' }}
           JOB_PROFILE: ${{ vars.JOB_PROFILE || 'both' }}
           MIN_SALARY_BRL: ${{ vars.MIN_SALARY_BRL || '7000' }}
-          JOB_RADIUS: ${{ vars.JOB_RADIUS || '80' }}
-          EXCLUDED_TITLE_TERMS: ${{ vars.EXCLUDED_TITLE_TERMS || 'estágio;estagiário;aprendiz' }}
-          REQUIRED_TITLE_TERMS: ${{ vars.REQUIRED_TITLE_TERMS }}
-          EXCLUDED_COMPANIES: ${{ vars.EXCLUDED_COMPANIES }}
-          MAX_JOBS: ${{ vars.MAX_JOBS || '8' }}
-          MAX_QUERIES_PER_RUN: ${{ vars.MAX_QUERIES_PER_RUN || '4' }}
-        run: python main.py
-
-      - name: Salvar histórico de vagas no repositório
-        # Executa mesmo se um canal falhar: o canal que funcionou não será repetido.
-        if: always()
-        # Runner do GitHub é descartável. Salvamos o JSON em um commit.
-        # Para escalar de verdade, depois podemos usar um banco de dados.
+          JOB_COUNTRY: ${{ vars.JOB_COUNTRY || 'BR' }}
+          JOB_LOCATION: ${{ vars.JOB_LOCATION }}
+          MAX_JOBS: ${{ vars.MAX_JOBS || '100' }}
+          WEB_MAX_MARKET_QUERIES: ${{ vars.WEB_MAX_MARKET_QUERIES || '6' }}
+          RUN_SEARCH: ${{ (github.event_name == 'workflow_dispatch' && inputs.search) || github.event.schedule == '17 9 * * 1-5' }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/sent_jobs.json
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: update sent job IDs"
-            git pull --rebase origin "${{ github.ref_name }}"
-            git push origin "HEAD:${{ github.ref_name }}"
+          if [ "$RUN_SEARCH" = 'true' ]; then
+            python scripts/cloud_alerts.py --search
+          else
+            python scripts/cloud_alerts.py
           fi
