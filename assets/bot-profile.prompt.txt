@@ -1,0 +1,6 @@
+﻿Use case: logo-brand
+Asset type: square Telegram profile picture for a job search bot called Bot Hunter.
+Primary request: Create a polished, memorable avatar of a friendly little robot that searches for job opportunities. The robot's face is the main subject, with one eye subtly shaped like a magnifying glass to convey searching. Professional, approachable, optimistic expression.
+Style/medium: clean contemporary illustrated mascot, bold simple shapes, crisp edges, restrained soft shading and strong contrast. A cohesive attractive color treatment chosen to suit a professional technology bot.
+Composition/framing: one centered close-up robot head, large and legible at 48 pixels, generous safe margins so the complete robot stays inside a circular Telegram crop. Square canvas, full opaque background with subtle depth. No surrounding scene.
+Constraints: one finished avatar only. No text, letters, numbers, watermark, mockup, or border. Avoid tiny details and visual clutter.

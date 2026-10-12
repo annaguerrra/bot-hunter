@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="hunter-csrf" content="{{ csrf }}">
+  <meta name="description" content="Encontre oportunidades ao redor do mundo e acompanhe as empresas que fazem sentido para você.">
+  <title>Bot Hunter · Seu próximo passo</title>
+  <link rel="icon" href="/assets/bot-profile.png">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+<svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18M5 7h14M5 17h14"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V5l8-3v19M12 8h8v13M2 21h20M7 7v2m0 3v2m0 3v2m9-8v2m0 3v2"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7m0-7L10 14M10 3H3v18h18v-7"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4 20-7Zm0 0L11 13"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></symbol>
+  <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V3h8v4M3 12l9 3 9-3M12 12v5"/></symbol>
+</svg>
+<aside class="sidebar">
+  <a class="brand" href="#explore"><img src="/assets/bot-profile.png" alt="Mascote do Bot Hunter"><span>bot<span class="brand-light">hunter</span><small>OPORTUNIDADES SEM FRONTEIRAS</small></span></a>
+  <div class="workspace"><span class="workspace-avatar">A</span><div>Meu espaço<small>Radar pessoal de vagas</small></div><span class="workspace-dot"></span></div>
+  <p class="nav-caption">SEU RADAR</p>
+  <nav aria-label="Navegação principal">
+    <a href="#explore" class="nav-link active" data-view="explore"><svg><use href="#i-globe"/></svg>Explorar vagas<span class="nav-arrow">↗</span></a>
+    <a href="#companies" class="nav-link" data-view="companies"><svg><use href="#i-building"/></svg>Empresas<span id="company-count" class="nav-count">0</span></a>
+    <a href="#favorites" class="nav-link" data-view="favorites"><svg><use href="#i-heart"/></svg>Vagas salvas<span id="favorite-count" class="nav-count">0</span></a>
+    <a href="#history" class="nav-link" data-view="history"><svg><use href="#i-clock"/></svg>Histórico</a>
+    <a href="#integrations" class="nav-link" data-view="integrations"><svg><use href="#i-settings"/></svg>Integrações</a>
+  </nav>
+  <div class="sidebar-note"><div class="orbit-mark">↗</div><strong>O mundo é seu próximo destino.</strong><p>Explore novas possibilidades, uma oportunidade de cada vez.</p><a href="#companies">Adicionar uma empresa <span>→</span></a></div>
+  <div class="sidebar-footer"><span class="live-dot"></span>Seu radar, no seu computador<small>Bot Hunter · versão global</small></div>
+</aside>
+<main>
+  <header class="topbar"><span><span class="breadcrumb">Meu espaço</span><span class="crumb-slash">/</span><span id="page-name">Explorar vagas</span></span><div class="topbar-right"><span class="connection"><span class="live-dot"></span>Radar conectado</span><span class="user-avatar">A</span></div></header>
+
+  <section id="view-explore" class="view">
+    <div class="hero">
+      <div class="hero-copy"><span class="eyebrow"><span class="tiny-star">✧</span> SUA CARREIRA, SEM FRONTEIRAS</span><h1>Seu próximo passo pode estar<br>em <span>qualquer lugar.</span></h1><p>Vagas do mundo inteiro. Empresas que você acompanha.<br>Todas as possibilidades, em um só radar.</p></div>
+      <div class="hero-art" aria-hidden="true"><svg viewBox="0 0 330 230"><defs><radialGradient id="sphere"><stop stop-color="#e4f0ed"/><stop offset="1" stop-color="#bcdcd1"/></radialGradient></defs><circle cx="170" cy="115" r="91" fill="url(#sphere)"/><g fill="none" stroke="#77ad98" stroke-width="1" opacity=".6"><circle cx="170" cy="115" r="91"/><ellipse cx="170" cy="115" rx="34" ry="91"/><ellipse cx="170" cy="115" rx="65" ry="91"/><ellipse cx="170" cy="115" rx="91" ry="34"/><ellipse cx="170" cy="115" rx="91" ry="65"/><path d="M79 115h182M170 24v182"/><ellipse cx="170" cy="115" rx="145" ry="37" transform="rotate(-26 170 115)" stroke-dasharray="4 6"/></g><circle cx="112" cy="71" r="6" fill="#197a5b"/><circle cx="226" cy="144" r="6" fill="#197a5b"/><circle cx="180" cy="199" r="4" fill="#197a5b"/></svg><div class="world-label"><span class="live-dot"></span>Um radar. O mundo inteiro.</div></div>
+    </div>
+    <div class="region-bar"><span>Onde você quer chegar?</span><div id="region-chips" class="region-chips" role="group" aria-label="Regiões do mundo"></div></div>
+    <div class="explore-layout">
+      <aside class="filter-panel">
+        <div class="panel-title"><h2>Seu radar de busca</h2><button type="button" class="text-button" id="reset-filters">Limpar</button></div>
+        <form id="search-form">
+          <label for="profile">Área de engenharia</label><select id="profile"><option value="both">Produto e produção / manufatura</option><option value="product">Produto / desenvolvimento / projeto mecânico</option><option value="production">Produção / manufatura / processos industriais</option><option value="custom">Termos personalizados</option></select>
+          <label for="keywords">Cargo ou palavras-chave</label><textarea id="keywords" rows="2" placeholder="product engineer;engenheiro de produto" required maxlength="300"></textarea><p class="field-help">Até 3 termos separados por ;. Os perfis de engenharia ampliam os termos com sinônimos e idiomas locais.</p>
+          <label for="salary-min">Salário mínimo · R$ por mês</label><input id="salary-min" type="number" min="7000" max="1000000" value="7000" step="100" required><p class="field-help">Outras moedas são convertidas para reais. Salário ausente ou incerto fica separado para análise, sem alerta.</p>
+          <label for="region">Região do mundo</label><select id="region"><option value="">Mundo todo</option></select>
+          <label for="country">País</label><select id="country"><option value="">Todos os países</option></select>
+          <label for="state">Estado / província</label><select id="state" disabled><option value="">Selecione um país primeiro</option></select>
+          <label for="city">Cidade <span class="optional">opcional</span></label><input id="city" placeholder="Ex.: Curitiba, Stuttgart, Shanghai" maxlength="100">
+          <div class="filter-divider"></div><span class="field-label">Fontes da busca</span>
+          <label class="checkbox-label"><input type="checkbox" name="source" value="companies" checked><span>Empresas acompanhadas</span><span class="mini-label">DIRETO</span></label>
+          <label class="checkbox-label"><input type="checkbox" name="source" value="jooble"><span>Jooble</span><span id="jooble-status" class="source-dot"></span></label>
+          <label class="checkbox-label"><input type="checkbox" name="source" value="google"><span>Google Empregos</span><span id="google-status" class="source-dot"></span></label>
+          <label class="checkbox-label"><input type="checkbox" name="source" value="gemini"><span>Gemini + Google Search</span><span id="gemini-status" class="source-dot"></span></label>
+          <a href="#integrations" id="google-setup-hint" class="field-link">Conectar Google Empregos →</a>
+          <div class="filter-divider"></div>
+          <label class="checkbox-label"><input id="multilingual" type="checkbox" checked><span>Ampliar termos em outros idiomas</span></label>
+          <label class="checkbox-label"><input id="strict-title" type="checkbox" checked><span>Exigir termos no título no perfil personalizado</span></label>
+          <label class="checkbox-label"><input id="remote-only" type="checkbox"><span>Apenas vagas remotas</span></label>
+          <details class="advanced"><summary>Mais opções de busca</summary><label for="excluded">Excluir termos do título</label><input id="excluded" value="estágio;estagiário;aprendiz;intern;internship"><label for="pages">Páginas por fonte e cargo</label><select id="pages"><option value="1">1 página · busca rápida</option><option value="2">2 páginas</option><option value="3">3 páginas · busca ampliada</option></select><p class="field-help">Jooble consulta a primeira página por mercado, respeitando o limite de consultas.</p></details>
+          <button type="submit" class="button primary search-button" id="search-button"><svg><use href="#i-search"/></svg><span>Encontrar oportunidades</span></button>
+        </form>
+      </aside>
+      <div class="results-area">
+        <div class="results-heading"><div><span class="section-kicker">EXPLORE O PRÓXIMO CAPÍTULO</span><h2 id="results-title">Oportunidades para você</h2><p id="results-subtitle">Escolha seu destino e deixe o radar trabalhar.</p></div><select id="sort-results" aria-label="Ordenar resultados"><option value="relevance">Mais compatíveis</option><option value="newest">Mais recentes</option><option value="company">Por empresa</option><option value="country">Por país</option></select></div>
+        <div id="search-progress" class="search-progress hidden" role="status"><span class="spinner"></span><div><strong>Seu radar está explorando novas possibilidades…</strong><p>Consultando as fontes selecionadas. Você pode continuar navegando.</p></div></div>
+        <div id="source-reports" class="source-reports" aria-live="polite"></div>
+        <div id="salary-tabs" class="region-chips hidden" role="group" aria-label="Situação do salário"><button class="chip active" type="button" data-salary-view="eligible">Salário aprovado (0)</button><button class="chip" type="button" data-salary-view="review">Para análise (0)</button></div>
+        <div id="research-sources" class="source-reports"></div>
+        <div id="selection-bar" class="selection-bar hidden"><span id="selection-count">0 selecionadas</span><button id="notify-open" class="button small primary"><svg><use href="#i-send"/></svg>Enviar alertas</button><button id="clear-selection" class="text-button">Limpar seleção</button></div>
+        <div id="jobs-list" class="jobs-list"><div class="empty-state"><div class="empty-icon"><svg><use href="#i-globe"/></svg><span class="empty-spark">✧</span></div><h3>Seu próximo destino começa aqui.</h3><p>Escolha um cargo, explore um país ou busque no mundo inteiro.<br>Vamos encontrar oportunidades que façam sentido para você.</p><div class="empty-badges"><span><svg><use href="#i-check"/></svg>Fontes reais</span><span><svg><use href="#i-check"/></svg>Busca global</span><span><svg><use href="#i-check"/></svg>Vagas favoritas</span></div></div></div>
+        <div class="results-footer"><p id="coverage-note">A cobertura depende das fontes e páginas consultadas. Países sem vagas retornadas não significam ausência de oportunidades.</p><a id="google-link" class="google-link" href="https://www.google.com/search?q=production+engineer+jobs&udm=8" target="_blank" rel="noopener noreferrer"><span class="google-letter">G</span>Abrir no Google Empregos<svg><use href="#i-external"/></svg></a></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-companies" class="view hidden"><div class="page-heading"><span class="eyebrow">SUAS PRÓXIMAS POSSIBILIDADES</span><h1>Empresas no seu radar.</h1><p>Cadastre uma página de carreiras e encontre vagas direto na fonte.</p></div><div class="company-layout"><div><div id="companies-list" class="companies-list"></div></div><form id="company-form" class="surface add-company"><div class="form-icon"><svg><use href="#i-building"/></svg></div><h2>Adicionar uma empresa</h2><p>Vamos identificar a plataforma de vagas automaticamente.</p><label for="company-name">Nome da empresa</label><input id="company-name" placeholder="Ex.: Bosch" required maxlength="80"><label for="company-url">Página de carreiras</label><input id="company-url" type="url" placeholder="https://careers.empresa.com" required maxlength="1000"><button type="submit" class="button primary"><svg><use href="#i-plus"/></svg>Adicionar ao radar</button><p class="field-help">SmartRecruiters, Greenhouse e Lever têm integração direta. Outros sites são consultados por seus anúncios públicos estruturados; a compatibilidade varia por site.</p></form></div></section>
+
+  <section id="view-favorites" class="view hidden"><div class="page-heading"><span class="eyebrow">GUARDE O QUE FAZ SENTIDO</span><h1>Seus próximos passos, salvos.</h1><p>As oportunidades que você quer olhar com mais calma.</p></div><div id="favorites-list" class="jobs-list"></div></section>
+
+  <section id="view-history" class="view hidden"><div class="page-heading"><span class="eyebrow">CAMINHOS JÁ EXPLORADOS</span><h1>Seu histórico de buscas.</h1><p>Retome os resultados ou faça uma nova busca com os mesmos filtros.</p></div><div id="history-list" class="history-list"></div></section>
+
+  <section id="view-integrations" class="view hidden"><div class="page-heading"><span class="eyebrow">AMPLIE SEU RADAR</span><h1>Suas fontes, conectadas.</h1><p>Combine páginas de empresas, agregadores e seus canais de alerta.</p></div><div id="integration-cards" class="integration-grid"></div><div class="surface google-connect"><div><span class="google-letter">G</span><h2>Google Empregos dentro do seu radar</h2><p>Conecte uma chave SerpAPI para importar os resultados da busca de empregos do Google. A chave fica no arquivo privado do seu computador.</p><a href="https://serpapi.com/manage-api-key" target="_blank" rel="noopener noreferrer" class="field-link">Obter minha chave SerpAPI ↗</a></div><form id="google-form"><label for="serpapi-key">Chave SerpAPI</label><input id="serpapi-key" type="password" autocomplete="off" placeholder="Cole sua chave aqui" required><button class="button primary" type="submit">Conectar Google Empregos<svg><use href="#i-arrow"/></svg></button><p class="field-help">Sem a chave, você pode abrir a busca no Google pelo link na tela de resultados.</p></form></div></section>
+  <section id="jooble-settings" class="surface google-connect hidden"><div><span class="form-icon"><svg><use href="#i-globe"/></svg></span><h2>Jooble por país</h2><p>Cada país exige sua própria chave. A chave do Brasil continua funcionando para buscas brasileiras. Cadastre aqui as chaves dos outros países que deseja acompanhar.</p><p id="jooble-markets"></p><a id="jooble-signup-link" href="https://br.jooble.org/api/about" target="_blank" rel="noopener noreferrer" class="field-link">Solicitar chave para o país selecionado ↗</a></div><form id="jooble-form"><label for="jooble-country">País da chave</label><select id="jooble-country" required></select><label for="jooble-key">Chave regional da Jooble</label><input id="jooble-key" type="password" autocomplete="off" placeholder="Cole a chave deste país" required><button class="button primary" type="submit">Adicionar país ao radar<svg><use href="#i-plus"/></svg></button></form></section>
+  <section id="gemini-settings" class="surface google-connect hidden"><div><span class="form-icon"><svg><use href="#i-search"/></svg></span><h2>Gemini com pesquisa no Google</h2><p>Pesquisa anúncios em vários idiomas e avalia a compatibilidade das vagas. Fontes da pesquisa ficam disponíveis nos resultados; o anúncio fornece os dados de salário.</p><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="field-link">Criar chave no Google AI Studio ↗</a><p class="field-help">As buscas e avaliações usam a cota da sua conta Google. Esta integração é independente da SerpAPI.</p></div><form id="gemini-form"><label for="gemini-key">Chave Gemini</label><input id="gemini-key" type="password" autocomplete="off" placeholder="Cole sua chave aqui" required><button class="button primary" type="submit">Conectar Gemini<svg><use href="#i-arrow"/></svg></button><p class="field-help">A chave fica no .env privado e não aparece nas respostas da aplicação.</p></form></section>
+  <p id="gemini-billing-note" class="field-help hidden">A pesquisa Google dos modelos Gemini 3 requer acesso ao plano com faturamento. Se aparecer 429, confira <a href="https://aistudio.google.com/usage" target="_blank" rel="noopener noreferrer">os limites do projeto</a> e a <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer">tabela de disponibilidade</a>. A classificação das vagas pode funcionar mesmo quando a pesquisa estiver indisponível.</p>
+  <section id="jooble-guide" class="surface hidden"><h2>Todas as chaves regionais da Jooble</h2><p>A Jooble divulga 66 mercados. A chave de cada país é solicitada no site correspondente; não existe uma chave mundial. Lista conferida em 12/10/2026.</p><ol><li>Clique em <strong>Solicitar chave</strong> para o país.</li><li>Preencha nome, cargo, e-mail e telefone com seus dados. Em Website, informe o endereço público real do projeto, como <a href="https://github.com/annaguerrra/bot-hunter" target="_blank" rel="noopener noreferrer">seu repositório</a>, se o formulário aceitar. Se exigir uma aplicação publicada, use a URL pública quando houver.</li><li>Aguarde a resposta da Jooble e copie a chave recebida.</li><li>Clique em <strong>Cadastrar</strong>, cole a chave no formulário acima e salve. Repita para os outros países.</li></ol><p>O plano gratuito informa 500 consultas por chave durante toda a sua validade. A aprovação e a disponibilidade da API podem variar por mercado. <a href="https://help.jooble.org/en/support/solutions/articles/60001448238-rest-api-documentation" target="_blank" rel="noopener noreferrer">Documentação oficial ↗</a></p><div id="jooble-checklist"></div></section>
+  <footer class="main-footer">Feito para descobrir possibilidades.<span>bot hunter <span class="footer-star">✧</span></span></footer>
+</main>
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+<dialog id="job-dialog"><div class="dialog-header"><span class="section-kicker">SUA PRÓXIMA OPORTUNIDADE</span><button type="button" class="dialog-close" data-close="job-dialog" aria-label="Fechar detalhes">×</button></div><div id="job-detail"></div></dialog>
+<dialog id="notify-dialog"><div class="dialog-header"><h2>Enviar oportunidades</h2><button type="button" class="dialog-close" data-close="notify-dialog" aria-label="Fechar envio">×</button></div><p>Envie as vagas selecionadas para seus canais configurados. Vagas já enviadas pelo mesmo canal serão ignoradas.</p><form id="notify-form"><label class="checkbox-label"><input id="notify-telegram" type="checkbox" name="channel" value="telegram">Telegram</label><label class="checkbox-label"><input id="notify-email" type="checkbox" name="channel" value="email">E-mail</label><button class="button primary" type="submit"><svg><use href="#i-send"/></svg>Enviar vagas selecionadas</button></form></dialog>
+</body>
+</html>
