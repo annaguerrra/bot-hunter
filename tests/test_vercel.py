@@ -188,6 +188,9 @@ class DeploymentTests(unittest.TestCase):
         import tomllib
         config = tomllib.loads((BASE / 'pyproject.toml').read_text(encoding='utf-8'))
         self.assertEqual(config['tool']['vercel']['entrypoint'], 'app:app')
+        requirements = {line.strip() for line in (BASE / 'requirements.txt').read_text().splitlines() if line.strip() and not line.lstrip().startswith('#')}
+        self.assertEqual(set(config['project']['dependencies']), requirements)
+        self.assertFalse(config['tool']['uv']['package'])
         self.assertIn('app.py', json.loads((BASE / 'vercel.json').read_text())['functions'])
         with patch.dict(os.environ, {}, clear=True), self.assertRaisesRegex(RuntimeError, 'DATABASE_URL'):
             spec = importlib.util.spec_from_file_location('qa_vercel_entry', BASE / 'app.py')

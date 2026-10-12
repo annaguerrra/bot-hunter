@@ -155,7 +155,7 @@ function renderJobs() {
 
 function renderReports(reports = []) {
   $("#source-reports").innerHTML = reports.map((report) => {
-    const summary = report.status === "ok" ? `${report.matched} com salário aprovado · ${report.review || 0} para análise · ${report.below_minimum || 0} abaixo do piso · ${report.received} recebidas` : report.status === "pending" ? "Configuração pendente" : "Falha na consulta";
+    const summary = report.status === "ok" ? `${report.matched} com salário aprovado · ${report.review || 0} para análise · ${report.below_minimum || 0} abaixo do piso · ${report.received} recebidas` : report.status === "pending" ? "Configuração pendente" : report.status === "limited" ? "Limite atingido" : "Falha na consulta";
     const notes = (report.notes || []).map((note) => `<p>${esc(note)}</p>`).join("");
     const queries = report.queries?.length ? `<p><strong>Termos consultados:</strong> ${report.queries.map(esc).join(" · ")}</p>` : "";
     return `<div class="source-report${report.status === "pending" ? " warning" : report.status === "error" ? " error" : ""}"><strong>${esc(report.name)} · ${summary}</strong>${notes || queries ? `<details${report.status !== "ok" ? " open" : ""}><summary>Detalhes da fonte e cobertura</summary>${notes}${queries}</details>` : ""}</div>`;
