@@ -5,8 +5,8 @@ COMO PERSONALIZAR:
     2. Edite as opções do .env (cargos, cidades, filtros, credenciais).
     3. Não precisa alterar este arquivo para mudar a busca.
 
-Este arquivo concentra a lógica do MVP. Quando entrarmos com outras fontes de vagas,
-poderemos separar as integrações em arquivos próprios, sem mudar tudo de uma vez.
+Este arquivo mantém o ciclo de alertas Jooble. Regras de área e salário são
+compartilhadas com a interface web pelos módulos do pacote jobhunter.
 """
 
 import argparse

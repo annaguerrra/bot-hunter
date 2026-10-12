@@ -1,4 +1,104 @@
-# Job Hunter Bot — Engenharia de Produção
+# Bot Hunter — vagas e oportunidades globais
+
+O projeto agora tem uma **interface web local**, além do bot original de Telegram/e-mail. É possível buscar por região do mundo, país, estado/província e cidade, cadastrar empresas, salvar vagas, retomar buscas e enviar oportunidades selecionadas.
+
+## Abrir a aplicação web
+
+Na pasta do projeto, execute:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+# Somente se você ainda não tem .env:
+Copy-Item .env.example .env
+.\.venv\Scripts\python.exe web.py
+```
+
+Abra **http://127.0.0.1:5000**. O processo precisa continuar rodando enquanto você usa a interface. Para usar outra porta: `python web.py --port 5001`.
+
+O backend escuta apenas no computador local. A versão atual não é um serviço multiusuário hospedado. O frontend e as chaves de integrações são servidos pelo mesmo backend; as chaves não são devolvidas pela API.
+
+### Busca internacional
+
+- **Mundo todo, Américas, Europa, Ásia, África, Oceania e Antártida**; catálogo ISO de 249 países/territórios.
+- Países filtrados pela região escolhida; estados e províncias carregados conforme o país.
+- Até 3 termos por busca, separados por `;`. Exemplos: `production engineer;manufacturing engineer;engenheiro de produção`.
+- Por padrão, um desses termos precisa aparecer no título. Desmarque essa opção para uma busca mais ampla. Para outros destinos, acrescente o termo no idioma local.
+- Filtro de remoto, termos excluídos, ordenação e páginas por fonte.
+- O botão **Encontrar oportunidades** busca nas fontes selecionadas e nas empresas ativas do seu radar. Adicionar uma empresa a cadastra para essas buscas; isso não cria um agendamento automático novo.
+- Os resultados informam fonte, localização, cobertura e eventuais erros por fonte. Fontes com erro não anulam as outras.
+
+### Páginas de empresas
+
+A Bosch vem cadastrada e usa a API pública do SmartRecruiters. Cadastre empresas na tela **Empresas** usando sua URL de carreiras. As plataformas são reconhecidas automaticamente:
+
+| Fonte | URL de exemplo | Como funciona |
+|---|---|---|
+| Bosch | `https://careers.bosch.com/` | API SmartRecruiters, empresa `BoschGroup` |
+| SmartRecruiters | `https://jobs.smartrecruiters.com/EMPRESA` | Publicações públicas, busca e paginação |
+| Greenhouse | `https://job-boards.greenhouse.io/EMPRESA` | API pública de Job Board |
+| Lever | `https://jobs.lever.co/EMPRESA` | API pública de Postings |
+| Outros sites | Página pública de carreiras/vagas | Detecta links para as plataformas acima ou lê anúncios estruturados `JobPosting` |
+
+Também são aceitas as variantes europeias do Greenhouse e Lever. Sites genéricos têm leitura limitada à página cadastrada e até 9 links de vagas do mesmo domínio, respeitando `robots.txt`. Páginas que exigem login, execução de JavaScript ou não fornecem anúncios estruturados podem não ser compatíveis. Nesses casos, cadastre a página da plataforma de vagas da empresa. Não existe garantia de compatibilidade com qualquer website.
+
+### Google Empregos
+
+Na tela **Integrações**, informe sua chave [SerpAPI](https://serpapi.com/manage-api-key). Ela é salva em `SERPAPI_API_KEY` no `.env` privado. A busca usa o mecanismo `google_jobs`, geografia, idioma e a paginação `next_page_token` documentados pela SerpAPI. Essa integração é de terceiros e depende da cobertura e da cota da sua conta.
+
+Sem essa chave, **Abrir no Google Empregos** abre a interface do Google com os termos e o destino escolhidos. Esse link não importa vagas para o painel nem para os alertas. Buscas de região/mundo via SerpAPI consultam até 2 mercados prioritários por execução; escolher um país direciona a busca a ele.
+
+### Jooble internacional
+
+**Cada país da Jooble exige uma chave própria**, segundo a [documentação oficial](https://jooblehelpcenter.freshdesk.com/en/support/solutions/articles/60001448238-rest-api-documentation). A chave original `JOOBLE_API_KEY` é associada ao Brasil por padrão (`JOOBLE_COUNTRY=BR`). Cadastre as outras chaves em **Integrações → Jooble por país**; elas são salvas como `JOOBLE_API_KEY_DE`, `JOOBLE_API_KEY_US` etc.
+
+```dotenv
+JOOBLE_COUNTRY=BR
+JOOBLE_API_KEY=sua_chave_brasileira
+# Opcional, obtida em https://de.jooble.org/api/about:
+JOOBLE_API_KEY_DE=sua_chave_alema
+WEB_MAX_MARKET_QUERIES=6
+```
+
+A aplicação envia cada chave somente ao endpoint regional correspondente. Sem a chave do país selecionado, a interface mostra a configuração pendente e mantém as outras fontes. Para mundo/região, consulta os países configurados, com até `WEB_MAX_MARKET_QUERIES` chamadas por busca. A primeira página de cada combinação cargo/país é usada para preservar a cota.
+
+### Vagas salvas, histórico e alertas
+
+O coração salva uma oportunidade. O **Histórico** guarda resultados e filtros; **Ver resultados** retoma os dados já coletados e **Usar filtros** prepara uma nova busca. Os registros ficam no SQLite local `data/hunter.sqlite`, ignorado pelo Git.
+
+Selecione até 15 vagas, clique em **Enviar alertas** e escolha Telegram/e-mail. Buscas não enviam mensagens automaticamente. O histórico de envio da interface é separado por canal: se um canal falha, o que funcionou não repete as vagas. O histórico da interface é independente do JSON utilizado pelo bot CLI original.
+
+### Cobertura e limites
+
+As fontes têm cobertura, ordenação e limites próprios. **Mundo todo** permite anúncios de qualquer país, mas não significa coletar todas as vagas existentes. Aumente as páginas, pesquise países específicos e cadastre novas empresas para ampliar a cobertura. Quando um agregador não informa o país, o país da consulta é indicado no cartão; para fontes de empresas, países desconhecidos são excluídos quando existe um filtro geográfico. Estados/cidades precisam constar na localização do anúncio para passar pelos filtros.
+
+### Arquitetura e testes
+
+| Arquivo | Função |
+|---|---|
+| `web.py` | Backend Flask, endpoints, validação, busca assíncrona e alertas |
+| `templates/index.html`, `static/` | Frontend responsivo em português |
+| `jobhunter/providers.py` | SmartRecruiters, Greenhouse, Lever, JobPosting, Jooble regional e SerpAPI |
+| `jobhunter/geo.py`, `jobhunter/continents.json` | Países, subdivisões e regiões |
+| `jobhunter/storage.py` | Empresas, buscas, favoritas e envios em SQLite |
+| `main.py` | Bot original e integrações de Telegram/e-mail reutilizadas |
+| `tests/test_web.py` | Contratos de geografia, provedores, persistência e API |
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+node --check static/app.js
+# QA opcional em Edge, com web.py já rodando (consulta vagas reais da Bosch):
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe scripts/check_ui.py
+```
+
+O QA não envia notificações nem altera credenciais. Capturas e relatório ficam em `logs/qa/`, ignorado pelo Git. APIs e envios são simulados nos testes unitários.
+
+Referências das fontes: [SmartRecruiters Posting API](https://developers.smartrecruiters.com/reference/v1listpostings), [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html), [Lever Postings API](https://github.com/lever/postings-api), [SerpAPI Google Jobs](https://serpapi.com/google-jobs-api). O mapa de continentes foi derivado do [GeoNames countryInfo](https://download.geonames.org/export/dump/), licenciado em CC BY 4.0. Países e subdivisões são fornecidos pelo pycountry/ISO.
+
+---
+
+## Bot original de linha de comando
 
 Bot em **Python** para buscar vagas pela API da Jooble, filtrar oportunidades e enviar os links por **Telegram e e-mail**. Os dois canais podem funcionar juntos ou separadamente.
 
@@ -206,15 +306,15 @@ O workflow salva `data/sent_jobs.json` com um commit automático. Ele tenta salv
 ## 7. Próximas evoluções possíveis
 
 1. **Novas fontes de vagas:** criar módulos `providers/` com APIs oficiais ou autorizadas, sem depender apenas da Jooble.
-2. **Matching por perfil:** priorizar vagas por senioridade, áreas, cidade e experiência do seu pai.
-3. **Banco de dados:** migrar histórico e vagas para SQLite/PostgreSQL quando passar a ter múltiplas fontes ou usuários.
+2. **Matching pessoal:** complementar a especialidade com currículo, senioridade, idiomas e experiência.
+3. **Múltiplos usuários:** acrescentar contas e PostgreSQL ao armazenamento SQLite da interface local.
 4. **Alertas personalizáveis:** frequência diferente para e-mail (resumo diário) e Telegram (alerta de vagas urgentes).
-5. **Dashboard:** permitir visualizar vagas, marcar candidaturas e consultar histórico.
+5. **Candidaturas:** acrescentar o acompanhamento das candidaturas ao dashboard existente.
 
 ### Limitações atuais
 
 - Só usa a primeira página dos resultados de cada busca na Jooble, para poupar requisições.
-- Os filtros são por título e empresa, não analisam a descrição completa.
+- A classificação depende dos títulos e das descrições disponibilizados pela fonte; anúncios resumidos podem omitir informações.
 - O histórico por canal evita repetições normais; raramente, um serviço pode aceitar o envio e perder a conexão antes de confirmar, levando a uma repetição.
 - O bot usa **uma lista de destinatários de e-mail** e **um chat do Telegram**; múltiplos perfis ficam para uma próxima versão.
 - O projeto não realiza scraping de plataformas que proíbam automações não autorizadas.
@@ -222,3 +322,21 @@ O workflow salva `data/sent_jobs.json` com um commit automático. Ele tenta salv
 ---
 
 Referências: [API Jooble](https://jooblehelpcenter.freshdesk.com/en/support/solutions/articles/60001448238-rest-api-documentation) · [Telegram Bot API](https://core.telegram.org/bots/api) · [SMTP Python](https://docs.python.org/3/library/smtplib.html) · [GitHub Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)
+
+## Filtros de engenharia, remuneração e Gemini
+
+O perfil inicial busca **engenharia de produto físico e engenharia de produção/manufatura**. Na interface, escolha somente Produto, somente Produção ou as duas áreas. Cargos de vendas, RH, cozinha, contabilidade, eventos, construção civil e produtos de software são descartados quando identificados pelo título ou descrição. Termos personalizados continuam disponíveis para outras buscas; o piso salarial permanece obrigatório.
+
+O mínimo é **R$ 7.000 por mês**. A comparação usa o **menor valor publicado** de uma faixa. Remuneração anual é dividida por 12; semanal usa 52/12. Valores por hora só são comparados quando a jornada semanal está informada. Salários em outras moedas usam a cotação de referência [Frankfurter](https://frankfurter.dev/), com moeda, data e valor equivalente nos detalhes. Não estima benefícios, salário líquido, jornada ou salários ausentes. Moeda/período incerto, salário estimado, teto sem piso ou cotação indisponível ficam em **Para análise**. Essas vagas podem ser salvas; o backend impede enviá-las como alertas aprovados, inclusive se vierem de favoritos ou históricos antigos.
+
+Os perfis usam variações de português, inglês, espanhol, alemão, francês, italiano, chinês, japonês e coreano, com gênero, plural, acentos, siglas e nomes compostos. O idioma do país tem prioridade. A busca exibe os termos consultados por fonte; os limites de requisições/páginas continuam existindo e não garantem cobertura integral. Países com outros idiomas podem usar termos personalizados e pesquisa Gemini.
+
+Para ativar a IA, abra **Integrações → Gemini**, crie uma chave no [Google AI Studio](https://aistudio.google.com/apikey) e salve na interface local. Selecione **Gemini + Google Search** na busca. Também é possível preencher `GEMINI_API_KEY` no `.env` e reiniciar `python web.py`. A chave fica no backend. O modelo padrão é `gemini-3.1-flash-lite`, configurável por `GEMINI_MODEL`, conforme a [documentação dos modelos](https://ai.google.dev/gemini-api/docs/models).
+
+Gemini usa [Google Search grounding](https://ai.google.dev/gemini-api/docs/generate-content/google-search) para descobrir páginas e justifica a compatibilidade de até 80 vagas. A importação exige uma fonte citada e um anúncio público `JobPosting` verificável: salários/títulos gerados pelo modelo não viram dados de vagas. Páginas sem dados estruturados continuam disponíveis nas fontes para conferência. As sugestões do Google aparecem em um iframe isolado. A integração usa a cota Google, separadamente da SerpAPI; ausência de chave ou falha da IA preserva as outras fontes e filtros.
+
+A pesquisa Google dos modelos Gemini 3 requer acesso ao plano com faturamento, conforme a [tabela oficial de preços](https://ai.google.dev/gemini-api/docs/pricing). Uma chave pode funcionar para avaliar texto e retornar **429** ao usar Google Search. A aplicação mostra esse erro e mantém as vagas das empresas. Confira limites e faturamento no seu projeto Google; `GEMINI_SEARCH_MODEL` permite selecionar um modelo de pesquisa diferente do modelo de classificação, se disponível na sua conta.
+
+O cadastro Jooble agora lista somente os **66 mercados divulgados**, com links de solicitação e indicadores das chaves já cadastradas. Veja o [guia completo com todos os países e formulários](docs/jooble-keys.md). A lista de países da busca geral continua abrangendo todos os países ISO para empresas e outras fontes.
+
+O bot `python main.py` usa os mesmos critérios de área e salário, com `JOB_PROFILE=both` e `MIN_SALARY_BRL=7000`. Amplia os cargos dentro de `MAX_QUERIES_PER_RUN`, mantendo as localidades configuradas. `--preview` mostra vagas para análise sem enviar nem gravar. Em uma execução normal, grava as pendências em `data/salary_review.json`; somente vagas com salário compatível são enviadas. A pesquisa e classificação Gemini estão na interface web, onde os resultados aprovados podem ser enviados aos canais existentes.
