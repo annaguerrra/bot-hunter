@@ -1,4 +1,4 @@
-﻿"""Persistência SQLite com migração e isolamento por proprietário."""
+"""Persistência SQLite/PostgreSQL com migração e isolamento por proprietário."""
 import hashlib
 import json
 import secrets
@@ -9,15 +9,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 from werkzeug.security import check_password_hash, generate_password_hash
 from .company_catalog import DEFAULT_COMPANIES
+from .database import connection, insert_id
 
 DEFAULT_COMPANY = DEFAULT_COMPANIES[0]
 
 class Store:
-    def __init__(self, path):
+    def __init__(self, path, database_url='', recover_searches=True):
         self.path = Path(path)
+        self.database_url = database_url
+        self.is_postgres = bool(database_url)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.connection() as db:
-            legacy = db.execute("SELECT 1 FROM sqlite_master WHERE name='companies'").fetchone()
+            if self.is_postgres:
+                db.execute('BEGIN IMMEDIATE')
+            legacy = None if self.is_postgres else db.execute("SELECT 1 FROM sqlite_master WHERE name='companies'").fetchone()
             if legacy and 'user_id' not in {row['name'] for row in db.execute('PRAGMA table_info(companies)')}:
                 backup = sqlite3.connect(str(self.path) + '.before-users.bak')
                 try:
@@ -33,21 +38,39 @@ class Store:
                 "CREATE TABLE IF NOT EXISTS favorites (user_id INTEGER NOT NULL DEFAULT 0, id TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(user_id,id))",
                 "CREATE TABLE IF NOT EXISTS deliveries (user_id INTEGER NOT NULL DEFAULT 0, job_id TEXT NOT NULL, channel TEXT NOT NULL, PRIMARY KEY(user_id,job_id,channel))",
                 "CREATE TABLE IF NOT EXISTS metadata (name TEXT PRIMARY KEY, value TEXT NOT NULL)",
+                "CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value TEXT NOT NULL)",
+                "CREATE TABLE IF NOT EXISTS job_index (user_id INTEGER NOT NULL, id TEXT NOT NULL, payload TEXT NOT NULL, signature TEXT NOT NULL, PRIMARY KEY(user_id,id))",
+                "CREATE TABLE IF NOT EXISTS job_aliases (user_id INTEGER NOT NULL, source_id TEXT NOT NULL, job_id TEXT NOT NULL, PRIMARY KEY(user_id,source_id))",
+                "CREATE TABLE IF NOT EXISTS email_outbox (id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, recipient TEXT NOT NULL, payload TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, available DOUBLE PRECISION NOT NULL, lease DOUBLE PRECISION NOT NULL DEFAULT 0)",
+                "CREATE TABLE IF NOT EXISTS email_pending (user_id INTEGER NOT NULL, job_id TEXT NOT NULL, outbox_id TEXT NOT NULL, PRIMARY KEY(user_id,job_id))",
                 "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL, password_hash TEXT NOT NULL, role TEXT NOT NULL, preferences TEXT NOT NULL DEFAULT '{}', contacts TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL)",
                 "CREATE TABLE IF NOT EXISTS sessions (digest TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires REAL NOT NULL)",
                 "CREATE TABLE IF NOT EXISTS rate_limits (bucket TEXT PRIMARY KEY, count INTEGER NOT NULL, expires REAL NOT NULL)",
                 "CREATE INDEX IF NOT EXISTS search_owner ON searches(user_id,created_at)",
             ]
             for statement in schema:
+                if self.is_postgres:
+                    statement = statement.replace('id INTEGER PRIMARY KEY', 'id BIGSERIAL PRIMARY KEY').replace('expires REAL', 'expires DOUBLE PRECISION')
                 db.execute(statement)
-            if db.execute("SELECT 1 FROM sqlite_master WHERE name='legacy_companies'").fetchone():
+            if not self.is_postgres and db.execute("SELECT 1 FROM sqlite_master WHERE name='legacy_companies'").fetchone():
                 db.execute('INSERT INTO companies SELECT id,0,name,url,provider,identifier,enabled FROM legacy_companies')
                 db.execute('INSERT INTO searches SELECT id,0,filters,status,result,created_at FROM legacy_searches')
                 db.execute('INSERT INTO favorites SELECT 0,id,payload FROM legacy_favorites')
                 db.execute('INSERT INTO deliveries SELECT 0,job_id,channel FROM legacy_deliveries')
                 for table in ('companies', 'searches', 'favorites', 'deliveries'):
                     db.execute(f'DROP TABLE legacy_{table}')
-            db.execute("UPDATE searches SET status='interrupted' WHERE status='running'")
+            if recover_searches:
+                db.execute("UPDATE searches SET status='interrupted' WHERE status='running'")
+            if not db.execute('SELECT 1 FROM metadata WHERE name=?', ('job-identities-v1',)).fetchone():
+                # Preservamos os IDs antigos em aliases para não reenviar alertas históricos.
+                from .job_identity import remember
+                for row in db.execute('SELECT user_id,payload FROM favorites').fetchall():
+                    remember(db, json.loads(row['payload']), row['user_id'])
+                for row in db.execute('SELECT user_id,result FROM searches').fetchall():
+                    result = json.loads(row['result'])
+                    for job in result.get('jobs', []) + result.get('review_jobs', []):
+                        remember(db, job, row['user_id'])
+                db.execute('INSERT INTO metadata VALUES(?,?)', ('job-identities-v1', 'true'))
             owners = [row['id'] for row in db.execute('SELECT id FROM users')] or [0]
             for owner in owners:
                 flag = f'company-catalog-v2:{owner}'
@@ -57,17 +80,26 @@ class Store:
 
     @contextmanager
     def connection(self):
-        db = sqlite3.connect(self.path, timeout=15)
-        db.row_factory = sqlite3.Row
-        try:
-            with db:
-                yield db
-        finally:
-            db.close()
+        with connection(self.path, self.database_url) as db:
+            yield db
+
+    def settings(self):
+        with self.connection() as db:
+            return {row['name']: row['value'] for row in db.execute('SELECT name,value FROM settings')}
+
+    def setting(self, name, default=None):
+        with self.connection() as db:
+            row = db.execute('SELECT value FROM settings WHERE name=?', (name,)).fetchone()
+        return row['value'] if row else default
+
+    def set_setting(self, name, value, only_if_missing=False):
+        with self.connection() as db:
+            suffix = 'DO NOTHING' if only_if_missing else 'DO UPDATE SET value=excluded.value'
+            db.execute('INSERT INTO settings(name,value) VALUES(?,?) ON CONFLICT(name) ' + suffix, (name, value))
 
     def seed_companies(self, user_id, db):
         for company in DEFAULT_COMPANIES:
-            db.execute('INSERT OR IGNORE INTO companies(user_id,name,url,provider,identifier) VALUES(?,?,?,?,?)',
+            db.execute('INSERT INTO companies(user_id,name,url,provider,identifier) VALUES(?,?,?,?,?) ON CONFLICT(user_id,url) DO NOTHING',
                        (user_id, *(company[key] for key in ('name', 'url', 'provider', 'identifier'))))
 
     def companies(self, user_id=0):
@@ -76,8 +108,8 @@ class Store:
 
     def add_company(self, company, user_id=0):
         with self.connection() as db:
-            return db.execute('INSERT INTO companies(user_id,name,url,provider,identifier) VALUES(?,?,?,?,?)',
-                              (user_id, *(company[key] for key in ('name', 'url', 'provider', 'identifier')))).lastrowid
+            return insert_id(db, 'INSERT INTO companies(user_id,name,url,provider,identifier) VALUES(?,?,?,?,?)',
+                             (user_id, *(company[key] for key in ('name', 'url', 'provider', 'identifier'))))
 
     def update_company(self, identifier, enabled=None, remove=False, user_id=0):
         with self.connection() as db:
@@ -92,6 +124,11 @@ class Store:
 
     def finish_search(self, identifier, result, status='done', user_id=0):
         with self.connection() as db:
+            from .job_identity import remember
+            result = dict(result)
+            for group in ('jobs', 'review_jobs'):
+                if group in result:
+                    result[group] = list({job['canonical_id']: job for job in (remember(db, job, user_id) for job in result[group])}.values())
             db.execute('UPDATE searches SET result=?,status=? WHERE id=? AND user_id=?', (json.dumps(result), status, identifier, user_id))
 
     def search(self, identifier, user_id=0):
@@ -104,7 +141,8 @@ class Store:
 
     def recent_searches(self, user_id=0):
         with self.connection() as db:
-            rows = db.execute("SELECT id,filters,status,created_at FROM searches WHERE user_id=? AND json_extract(result,'$.kind') IS NULL ORDER BY created_at DESC LIMIT 20", (user_id,)).fetchall()
+            kind = "result::jsonb ->> 'kind'" if self.is_postgres else "json_extract(result,'$.kind')"
+            rows = db.execute(f"SELECT id,filters,status,created_at FROM searches WHERE user_id=? AND {kind} IS NULL ORDER BY created_at DESC LIMIT 20", (user_id,)).fetchall()
         return [{**dict(row), 'filters': json.loads(row['filters'])} for row in rows]
 
     def favorite(self, job, remove=False, user_id=0):
@@ -112,7 +150,7 @@ class Store:
             if remove:
                 db.execute('DELETE FROM favorites WHERE id=? AND user_id=?', (job['id'], user_id))
             else:
-                db.execute('INSERT OR REPLACE INTO favorites VALUES(?,?,?)', (user_id, job['id'], json.dumps(job)))
+                db.execute('INSERT INTO favorites VALUES(?,?,?) ON CONFLICT(user_id,id) DO UPDATE SET payload=excluded.payload', (user_id, job['id'], json.dumps(job)))
 
     def favorites(self, user_id=0):
         with self.connection() as db:
@@ -120,11 +158,15 @@ class Store:
 
     def delivered(self, job_id, channel, user_id=0):
         with self.connection() as db:
-            return bool(db.execute('SELECT 1 FROM deliveries WHERE job_id=? AND channel=? AND user_id=?', (job_id, channel, user_id)).fetchone())
+            from .job_identity import resolve
+            canonical = resolve(db, job_id, user_id)
+            return bool(db.execute('SELECT 1 FROM deliveries d LEFT JOIN job_aliases a ON a.user_id=d.user_id AND a.source_id=d.job_id '
+                                   'WHERE d.user_id=? AND d.channel=? AND COALESCE(a.job_id,d.job_id)=?', (user_id, channel, canonical)).fetchone())
 
     def mark_delivered(self, ids, channel, user_id=0):
         with self.connection() as db:
-            db.executemany('INSERT OR IGNORE INTO deliveries VALUES(?,?,?)', [(user_id, identifier, channel) for identifier in ids])
+            from .job_identity import resolve
+            db.executemany('INSERT INTO deliveries VALUES(?,?,?) ON CONFLICT(user_id,job_id,channel) DO NOTHING', [(user_id, resolve(db, identifier, user_id), channel) for identifier in ids])
 
     def has_users(self):
         with self.connection() as db:
@@ -135,10 +177,10 @@ class Store:
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
             first = not db.execute('SELECT 1 FROM users LIMIT 1').fetchone()
-            identifier = db.execute('INSERT INTO users(name,email,password_hash,role,created_at) VALUES(?,?,?,?,?)',
-                                    (name, email, password_hash, 'admin' if first else 'member', datetime.now(timezone.utc).isoformat())).lastrowid
+            identifier = insert_id(db, 'INSERT INTO users(name,email,password_hash,role,created_at) VALUES(?,?,?,?,?)',
+                                   (name, email, password_hash, 'admin' if first else 'member', datetime.now(timezone.utc).isoformat()))
             if first:
-                for table in ('companies', 'searches', 'favorites', 'deliveries'):
+                for table in ('companies', 'searches', 'favorites', 'deliveries', 'job_index', 'job_aliases', 'email_outbox', 'email_pending'):
                     db.execute(f'UPDATE {table} SET user_id=? WHERE user_id=0', (identifier,))
             else:
                 self.seed_companies(identifier, db)
@@ -158,8 +200,13 @@ class Store:
         valid = check_password_hash(row['password_hash'] if row else dummy_hash, password)
         return self.user(row['id']) if row and valid else None
 
-    def update_user(self, identifier, *, name=None, preferences=None, contacts=None):
+    def update_user(self, identifier, *, name=None, preferences=None, contacts=None, merge_contacts=False):
         with self.connection() as db:
+            if merge_contacts and contacts is not None:
+                # Alterar um destino preserva o outro, inclusive em requisições simultâneas.
+                db.execute('BEGIN IMMEDIATE')
+                current = db.execute('SELECT contacts FROM users WHERE id=?', (identifier,)).fetchone()
+                contacts = {**json.loads(current['contacts']), **contacts}
             for field, value in [('name', name), ('preferences', preferences), ('contacts', contacts)]:
                 if value is not None:
                     db.execute(f'UPDATE users SET {field}=? WHERE id=?', (value if field == 'name' else json.dumps(value), identifier))
@@ -193,5 +240,5 @@ class Store:
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
             db.execute('DELETE FROM rate_limits WHERE expires<=?', (now,))
-            db.execute('INSERT INTO rate_limits VALUES(?,1,?) ON CONFLICT(bucket) DO UPDATE SET count=count+1', (bucket, now + seconds))
+            db.execute('INSERT INTO rate_limits VALUES(?,1,?) ON CONFLICT(bucket) DO UPDATE SET count=rate_limits.count+1', (bucket, now + seconds))
             return db.execute('SELECT count FROM rate_limits WHERE bucket=?', (bucket,)).fetchone()['count'] <= limit

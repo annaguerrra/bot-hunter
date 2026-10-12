@@ -11,7 +11,7 @@ from .geo import location_matches
 
 def suggest_companies(filters, registered):
     candidates, notes, grounding = [], [], {}
-    if os.getenv('GEMINI_API_KEY', '').strip():
+    if os.getenv('GEMINI_API_KEY', '').strip() and os.getenv('GEMINI_ENABLED', 'true').lower() == 'true':
         try:
             data, grounding = gemini.generate(
                 'Pesquise com Google Search empresas com anúncios atuais para este perfil e localização. '

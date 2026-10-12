@@ -55,7 +55,7 @@ class IntegrationTests(unittest.TestCase):
         response = requests.Response()
         response.status_code = 429
         response._content = b'{"error":{"message":"secret-must-never-be-echoed"}}'
-        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake-key"}), patch.object(requests, "post", return_value=response):
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake-key", "GEMINI_ENABLED": "true"}), patch.object(requests, "post", return_value=response):
             with self.assertRaises(gemini.GeminiError) as error:
                 gemini.generate("find jobs", True)
         self.assertIn("429", str(error.exception))
@@ -79,7 +79,7 @@ class IntegrationTests(unittest.TestCase):
             main.main(preview=True)
             telegram.assert_not_called()
             email.assert_not_called()
-            self.assertEqual(list(Path(directory).iterdir()), [])
+            self.assertEqual([path.name for path in Path(directory).iterdir()], ['hunter.sqlite'])
             self.assertIn("PARA ANÁLISE", output.getvalue())
 
     def test_gemini_missing_key_preserves_other_sources(self):
@@ -93,7 +93,7 @@ class IntegrationTests(unittest.TestCase):
         response = requests.Response()
         response.status_code = 200
         response._content = json.dumps({"candidates": [{"content": {"parts": [{"text": '{"pages": []}'}]}, "groundingMetadata": {"webSearchQueries": ["product engineer jobs"]}}]}).encode()
-        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake-private-key"}), patch.object(requests, "post", return_value=response) as network:
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake-private-key", "GEMINI_ENABLED": "true"}), patch.object(requests, "post", return_value=response) as network:
             data, metadata = gemini.generate("find jobs", search=True)
         call = network.call_args
         self.assertEqual(call.kwargs["headers"]["x-goog-api-key"], "fake-private-key")

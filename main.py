@@ -156,22 +156,39 @@ def load_history():
     Se encontrar esse formato, mantém os IDs como enviados no Telegram,
     mas permite que o e-mail envie essas vagas pela primeira vez.
     """
+    database_url = os.getenv('DATABASE_URL', '')
+    cloud = {'telegram': set(), 'email': set()}
+    if database_url:
+        from jobhunter.database import connection
+        with connection(HISTORY_FILE, database_url) as db:
+            db.execute('CREATE TABLE IF NOT EXISTS cli_deliveries (channel TEXT NOT NULL, job_id TEXT NOT NULL, PRIMARY KEY(channel,job_id))')
+            for row in db.execute('SELECT channel,job_id FROM cli_deliveries'):
+                if row['channel'] in cloud:
+                    cloud[row['channel']].add(row['job_id'])
     if not HISTORY_FILE.exists():
-        return {"telegram": set(), "email": set()}
+        return cloud
 
     data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
     if isinstance(data, list):  # Compatibilidade com o histórico do MVP antigo.
-        return {"telegram": set(map(str, data)), "email": set()}
+        return {"telegram": cloud['telegram'] | set(map(str, data)), "email": cloud['email']}
     if not isinstance(data, dict):
         raise ValueError("O histórico precisa ser uma lista antiga ou objeto por canal.")
     return {
-        "telegram": set(map(str, data.get("telegram", []))),
-        "email": set(map(str, data.get("email", []))),
+        "telegram": cloud['telegram'] | set(map(str, data.get("telegram", []))),
+        "email": cloud['email'] | set(map(str, data.get("email", []))),
     }
 
 
 def save_history(history):
     """Salva separadamente os IDs de cada canal, sem perder o histórico anterior."""
+    if os.getenv('DATABASE_URL'):
+        from jobhunter.database import connection
+        with connection(HISTORY_FILE, os.environ['DATABASE_URL']) as db:
+            db.execute('CREATE TABLE IF NOT EXISTS cli_deliveries (channel TEXT NOT NULL, job_id TEXT NOT NULL, PRIMARY KEY(channel,job_id))')
+            for channel in ('telegram', 'email'):
+                db.executemany('INSERT INTO cli_deliveries VALUES(?,?) ON CONFLICT(channel,job_id) DO NOTHING',
+                               [(channel, identifier) for identifier in history[channel]])
+        return
     HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
     temp = HISTORY_FILE.with_suffix(".tmp")
     data = {channel: sorted(history[channel]) for channel in ("telegram", "email")}
@@ -265,6 +282,11 @@ def search_jobs(api_key, keyword, location, radius):
     return jobs
 
 
+def make_usage_budget():
+    from jobhunter.usage import UsageBudget
+    return UsageBudget(HISTORY_FILE.parent / 'hunter.sqlite', os.getenv('DATABASE_URL', ''))
+
+
 # ========== TELEGRAM: NOTIFICAÇÕES ==========
 def job_message(job):
     """Monta a mensagem de cada vaga para o Telegram (que aceita HTML simples)."""
@@ -338,7 +360,7 @@ def send_email(config, jobs):
     "jobs" é uma lista de vagas (dicionários), não uma mensagem HTML pronta.
     Assim, o mesmo resultado da busca serve para o Telegram e para o e-mail.
     """
-    subject = f"Job Hunter | {len(jobs)} nova(s) vaga(s) de engenharia"
+    subject = f"Job Hunter | {len(jobs)} nova(s) vaga(s)"
     email = EmailMessage()
     email["From"] = config["sender"]
     email["To"] = ", ".join(config["to"])
@@ -446,6 +468,7 @@ def main(preview=False):
             mail_config = email_settings()
 
     history = load_history()
+    usage = make_usage_budget()
     candidates = {}  # Mesmo ID em duas buscas? Entra só uma vez.
     errors = 0
     review_candidates = {}
@@ -454,7 +477,19 @@ def main(preview=False):
     for location in settings["locations"]:
         for keyword in settings["keywords"]:
             try:
-                jobs = search_jobs(api_key, keyword, location, settings["radius"])
+                query = {'keywords': keyword, 'location': location, 'radius': settings['radius'], 'page': 1, 'ResultOnPage': 100}
+                jobs = usage.cached(api_key, query) if usage else None
+                if jobs is None:
+                    if usage:
+                        from jobhunter.usage import BudgetExceeded
+                        try:
+                            usage.reserve(0, os.getenv('JOOBLE_COUNTRY', 'BR'), api_key)
+                        except BudgetExceeded as exc:
+                            print(str(exc))
+                            continue
+                    jobs = search_jobs(api_key, keyword, location, settings["radius"])
+                    if usage:
+                        usage.remember(api_key, query, jobs)
                 print(f"Busca '{keyword}' em '{location}': {len(jobs)} vagas recebidas.")
                 for job in jobs:
                     key = job_key(job)

@@ -317,7 +317,7 @@ def query_location(filters, code):
     return ", ".join(filter(None, [filters["city"], next(iter(state_names(filters["state"])), ""), BY_CODE[code]["english"]]))
 
 
-def jooble(filters):
+def jooble(filters, usage=None, user_id=0):
     if filters.get("country") and filters["country"] not in HOSTS:
         raise NeedsConfiguration("Este país não está na lista de mercados divulgados pela Jooble. Use empresas ou Gemini / Google Search.")
     keys = jooble_keys()
@@ -327,6 +327,8 @@ def jooble(filters):
     if not available:
         destination = BY_CODE[filters["country"]]["name"] if filters["country"] else "esta região"
         raise NeedsConfiguration("A Jooble exige uma chave por país. Cadastre a chave de " + destination + " em Integrações.")
+    if usage and not filters.get('country'):
+        available = usage.rank_markets(user_id, available, keys)
     try:
         budget = max(1, min(int(os.getenv("WEB_MAX_MARKET_QUERIES", "6")), 24))
     except ValueError:
@@ -334,17 +336,46 @@ def jooble(filters):
     markets = available[:max(1, budget // len(filters["keywords"]))]
     errors = []
     used = 0
+    cached_count = 0
+    consulted = []
     for code in markets:
         for keyword in filters["keywords"]:
             if used >= budget:
                 break
-            used += 1
+            query = {"keywords": keyword, "location": query_location(filters, code),
+                     "page": 1, "ResultOnPage": filters.get('jooble_count', 100), "radius": "0"}
+            results = usage.cached(keys[code], query) if usage else None
             try:
-                response = requests.post("https://" + jooble_host(code) + "/api/" + keys[code],
-                                         json={"keywords": keyword, "location": query_location(filters, code),
-                                               "page": 1, "ResultOnPage": filters.get('jooble_count', 100), "radius": "0"}, timeout=25)
-                response.raise_for_status()
-                results = response.json().get("jobs", [])
+                if results is None:
+                    if usage:
+                        from .usage import BudgetExceeded
+                        try:
+                            usage.reserve(user_id, code, keys[code])
+                        except BudgetExceeded as exc:
+                            filters['_budget_limited'] = True
+                            errors.append(str(exc))
+                            continue
+                    used += 1
+                    response = requests.post("https://" + jooble_host(code) + "/api/" + keys[code], json=query, timeout=25)
+                    if usage and response.status_code == 429:
+                        try:
+                            retry = int(response.headers.get('Retry-After', '3600'))
+                        except ValueError:
+                            retry = 3600
+                        usage.block(keys[code], seconds=retry)
+                    if usage and response.status_code in {400, 402, 403}:
+                        # Só a confirmação do provedor indica esgotamento; chave inválida não significa saldo gasto.
+                        message = response.text[:2000].casefold()
+                        if any(term in message for term in ('quota exceeded', 'limit exceeded', 'no requests left', 'requests exhausted')):
+                            usage.block(keys[code], exhausted=True)
+                    response.raise_for_status()
+                    results = response.json().get("jobs", [])
+                    if usage:
+                        usage.remember(keys[code], query, results)
+                else:
+                    cached_count += 1
+                if code not in consulted:
+                    consulted.append(code)
             except (requests.RequestException, ValueError) as exc:
                 errors.append(BY_CODE[code]["name"] + ": consulta falhou (" + type(exc).__name__ + "). Confira a chave regional e a cota.")
                 continue
@@ -359,10 +390,11 @@ def jooble(filters):
                 jobs.append(job)
     notes = ["Jooble: primeira página por cargo e país; país inferido da consulta quando ausente no anúncio.",
              f"Até {filters.get('jooble_count', 100)} anúncios por consulta; a API pode retornar menos. O limite de chamadas da busca permanece o mesmo.",
-             "Consultados " + ", ".join(BY_CODE[code]["name"] for code in markets) + ". A Jooble exige uma chave própria para cada país."] + list(dict.fromkeys(errors))
+             "Consultados " + (", ".join(BY_CODE[code]["name"] for code in consulted) or "nenhum país nesta busca") + ". A Jooble exige uma chave própria para cada país.",
+             f"{used} chamadas novas; {cached_count} consultas reaproveitadas do cache de 24 horas."] + list(dict.fromkeys(errors))
     if len(markets) < len(codes):
         notes.append("Outros países dependem de suas chaves regionais e do limite de consultas.")
-    if errors and len(errors) == used:
+    if errors and len(errors) == used and not usage:
         raise RuntimeError("Todas as consultas da Jooble falharam.")
     return jobs, notes
 
@@ -373,9 +405,13 @@ def google_url(filters):
     return "https://www.google.com/search?" + urlencode({"q": query, "udm": "8"})
 
 
-def google_jobs(filters):
+def google_jobs(filters, usage=None, user_id=0):
     key = main.required_env("SERPAPI_API_KEY")
     jobs = []
+    notes = []
+    from .google_usage import GoogleBudget
+    from .usage import BudgetExceeded
+    budget = GoogleBudget(usage) if usage else None
     codes = market_codes(filters)
     # Google Empregos é uma busca localizada: em região/mundo consultamos até dois mercados por execução.
     for code in codes[:2]:
@@ -387,11 +423,35 @@ def google_jobs(filters):
                 if next_token:
                     params["next_page_token"] = next_token
                 # Não usamos public_get aqui: a chave vai apenas para o domínio fixo da SerpAPI.
-                response = requests.get("https://serpapi.com/search.json", params=params, timeout=25)
-                response.raise_for_status()
-                data = response.json()
+                # Respostas iguais usam cache; só reservamos cota antes de uma chamada real.
+                cache_params = {name: value for name, value in params.items() if name != 'api_key'}
+                data = usage.cached('serp:' + key, cache_params) if usage else None
+                if data is None:
+                    try:
+                        if budget:
+                            budget.reserve()
+                    except BudgetExceeded as exc:
+                        filters['_budget_limited'] = True
+                        return jobs, notes + [str(exc)]
+                    try:
+                        response = requests.get("https://serpapi.com/search.json", params=params, timeout=25)
+                        if response.status_code == 429 and budget:
+                            budget.pause()
+                        response.raise_for_status()
+                        data = response.json()
+                    except (requests.RequestException, ValueError):
+                        return jobs, notes + ['Google Empregos indisponível. Confira a chave, a cota e tente mais tarde; as vagas de outras fontes foram preservadas.']
+                    # Ausência de vagas não significa chave inválida nem cota esgotada.
+                    error = str(data.get('error', '')).lower()
+                    if error and any(text in error for text in ('no results', "hasn't returned any results", 'has not returned any results')):
+                        data = {'jobs_results': []}
+                        notes.append('Google Empregos não encontrou anúncios para um dos termos e locais consultados.')
+                    if usage and not data.get('error'):
+                        usage.remember('serp:' + key, cache_params, data)
                 if data.get("error"):
-                    raise RuntimeError("A SerpAPI não retornou resultados. Confira a chave e a cota da sua conta.")
+                    if budget:
+                        budget.pause()
+                    return jobs, notes + ["A SerpAPI não retornou resultados. Confira a chave e a cota da sua conta."]
                 for item in data.get("jobs_results", []):
                     options = item.get("apply_options", [])
                     link = next((option.get("link") for option in options if safe_link(option.get("link"))), "")
@@ -407,7 +467,7 @@ def google_jobs(filters):
                 next_token = data.get("serpapi_pagination", {}).get("next_page_token", "")
                 if not next_token:
                     break
-    return jobs, ["Google Empregos via SerpAPI: busca localizada em " + ", ".join(BY_CODE[code]["name"] for code in codes[:2]) + "; país inferido da consulta quando ausente."]
+    return jobs, notes + ["Google Empregos via SerpAPI: busca localizada em " + ", ".join(BY_CODE[code]["name"] for code in codes[:2]) + "; país inferido da consulta quando ausente."]
 
 
 COMPANY_PROVIDERS = {"smartrecruiters": smartrecruiters, "greenhouse": greenhouse, "greenhouse_eu": greenhouse,
@@ -456,7 +516,7 @@ def enrich_company_jobs(company, jobs, filters):
     return jobs, notes
 
 
-def run_search(filters, companies):
+def run_search(filters, companies, usage=None, user_id=0):
     providers = []
     if "companies" in filters["sources"]:
         providers.extend((company["name"], COMPANY_PROVIDERS[company["provider"]], company)
@@ -484,6 +544,10 @@ def run_search(filters, companies):
                     source_filters["keywords"] = matching.expand_queries(filters["keywords"], profile, available[0], filters.get("multilingual", True), limit=6)
             if name == "Gemini / Google Search":
                 found, notes, references, search_queries, search_suggestions = fetch(filters)
+            elif name == 'Jooble':
+                found, notes = fetch(source_filters, usage=usage, user_id=user_id) if usage else fetch(source_filters)
+            elif name == 'Google Empregos':
+                found, notes = fetch(source_filters, usage=usage, user_id=user_id) if usage else fetch(source_filters)
             else:
                 found, notes = fetch(company, source_filters) if company else fetch(source_filters)
                 if company:
@@ -521,7 +585,8 @@ def run_search(filters, companies):
                 else:
                     signatures[signature] = job["id"]
                     jobs[job["id"]] = job
-            report.append({"name": name, "status": "ok", "received": len(found), "matched": accepted,
+            report.append({"name": name, "status": "limited" if source_filters.get('_budget_limited') and not found else "ok", "received": len(found), "matched": accepted,
+                           "budget_limited": bool(source_filters.get('_budget_limited')),
                            "review": review_count, "below_minimum": below_count, "notes": notes,
                            "queries": source_filters["keywords"] if name != "Gemini / Google Search" else search_queries})
         except NeedsConfiguration as exc:
@@ -537,7 +602,7 @@ def run_search(filters, companies):
             report.append({"name": name, "status": "pending" if not configured or configured.startswith("COLE_") else "error",
                            "received": 0, "matched": 0, "notes": [note]})
     candidates = list(jobs.values())
-    if "gemini" in filters["sources"] and candidates and os.getenv("GEMINI_API_KEY", "").strip() and not os.getenv("GEMINI_API_KEY", "").startswith("COLE_"):
+    if "gemini" in filters["sources"] and candidates and os.getenv('GEMINI_ENABLED', 'true').lower() == 'true' and os.getenv("GEMINI_API_KEY", "").strip() and not os.getenv("GEMINI_API_KEY", "").startswith("COLE_"):
         try:
             from . import gemini
             gemini.rank_jobs(candidates, profile, filters)
@@ -550,5 +615,5 @@ def run_search(filters, companies):
     return {"jobs": [job for job in candidates if job["salary_check"]["status"] == "eligible"][:500],
             "review_jobs": [job for job in candidates if job["salary_check"]["status"] == "review"][:500],
             "research_sources": references, "query_plan": query_plan, "search_suggestions": search_suggestions,
-            "reports": report, "google_url": google_url(filters),
+            "reports": report, "budget_limited": any(item.get('budget_limited') for item in report), "google_url": google_url(filters),
             "coverage": "Resultados das fontes e páginas consultadas; nenhuma busca garante todas as vagas do mundo."}

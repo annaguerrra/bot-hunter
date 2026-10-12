@@ -3,5 +3,9 @@ python-dotenv>=1.0,<2
 Flask>=3.1,<4
 beautifulsoup4>=4.12,<5
 pycountry>=24.6,<27
+psycopg[binary]>=3.2,<4
+waitress>=3.0,<4
+tzdata>=2025.2
+PyYAML>=6.0,<7
 
 

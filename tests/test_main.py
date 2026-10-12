@@ -36,6 +36,17 @@ ENV = {
 
 
 class JobHunterTests(unittest.TestCase):
+    def setUp(self):
+        # Cada teste usa seu proprio historico, sem acessar o banco real do .env.
+        env = patch.dict("os.environ", {"DATABASE_URL": ""})
+        env.start()
+        self.addCleanup(env.stop)
+
+    def setUp(self):
+        self.budget_patch = patch.object(main, 'make_usage_budget', return_value=None)
+        self.budget_patch.start()
+        self.addCleanup(self.budget_patch.stop)
+
     def test_normalize_removes_accents(self):
         self.assertEqual(main.normalize("Engenheiro de Produção"), "engenheiro de producao")
 

@@ -17,6 +17,8 @@ class GeminiError(RuntimeError):
 
 
 def generate(prompt, search=False):
+    if os.getenv('GEMINI_ENABLED', 'true').lower() != 'true':
+        raise GeminiError('Gemini está desativado nesta instalação. As outras fontes continuam disponíveis.')
     key = os.getenv("GEMINI_API_KEY", "").strip()
     if not key or key.startswith("COLE_"):
         raise GeminiError("Configure GEMINI_API_KEY em Integrações para pesquisar com Gemini.")
