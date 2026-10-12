@@ -16,7 +16,8 @@ class BudgetExceeded(RuntimeError):
 class UsageBudget:
     def __init__(self, path, database_url='', clock=time.time):
         self.path, self.database_url, self.clock = path, database_url, clock
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        if not database_url:
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
         with connection(path, database_url) as db:
             db.execute('CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value TEXT NOT NULL)')
             db.execute('CREATE TABLE IF NOT EXISTS usage_keys (fingerprint TEXT PRIMARY KEY, country TEXT NOT NULL, used INTEGER NOT NULL DEFAULT 0, prior_used INTEGER NOT NULL DEFAULT 0, calibrated INTEGER NOT NULL DEFAULT 0, last_used DOUBLE PRECISION NOT NULL DEFAULT 0, blocked_until DOUBLE PRECISION NOT NULL DEFAULT 0)')

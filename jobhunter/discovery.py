@@ -4,7 +4,7 @@ import os
 
 import requests
 
-from . import gemini, matching, providers
+from . import gemini, matching, providers, http
 from .company_catalog import DEFAULT_COMPANIES
 from .geo import location_matches
 
@@ -28,6 +28,8 @@ def suggest_companies(filters, registered):
                     if isinstance(item, dict) and item.get('url') in cited and isinstance(item.get('name'), str):
                         candidates.append({'name': item['name'][:80], 'url': item['url'], 'origin': 'Gemini / Google Search'})
             notes.append('Sugestões Gemini só entram no radar depois da verificação de anúncios públicos compatíveis.')
+        except http.SearchDeadlineExceeded as exc:
+            notes.append(str(exc))
         except gemini.GeminiError as exc:
             notes.append(str(exc))
         except (requests.RequestException, ValueError, OSError):
@@ -42,6 +44,7 @@ def suggest_companies(filters, registered):
     suggestions, checked = [], set()
     for candidate in candidates[:10]:
         try:
+            http.checkpoint()
             company = providers.discover_company(candidate['name'], candidate['url'])
             identity = (company['provider'], company['identifier'] or company['url'])
             if identity in checked:
@@ -60,6 +63,9 @@ def suggest_companies(filters, registered):
                                 'note': 'Vagas compatíveis verificadas; remuneração será conferida na busca. Salário mínimo não é garantido pela empresa.'})
             if len(suggestions) >= 5:
                 break
+        except http.SearchDeadlineExceeded as exc:
+            notes.append(str(exc))
+            break
         except (requests.RequestException, ValueError, OSError, KeyError, TypeError):
             continue
     references = [{'url': providers.safe_link(chunk.get('web', {}).get('uri')), 'title': str(chunk.get('web', {}).get('title', 'Fonte'))[:180]} for chunk in grounding.get('groundingChunks', [])]

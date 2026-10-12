@@ -5,7 +5,7 @@ import secrets
 import sqlite3
 import time
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from werkzeug.security import check_password_hash, generate_password_hash
 from .company_catalog import DEFAULT_COMPANIES
@@ -18,7 +18,8 @@ class Store:
         self.path = Path(path)
         self.database_url = database_url
         self.is_postgres = bool(database_url)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.is_postgres:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.connection() as db:
             if self.is_postgres:
                 db.execute('BEGIN IMMEDIATE')
@@ -121,6 +122,13 @@ class Store:
         with self.connection() as db:
             db.execute('INSERT INTO searches(id,user_id,filters,status,created_at) VALUES(?,?,?,?,?)',
                        (identifier, user_id, json.dumps(filters), 'running', datetime.now(timezone.utc).isoformat()))
+
+    def expire_searches(self, user_id, seconds=360):
+        # Uma nova instância não interrompe buscas ativas de outra instância.
+        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=seconds)).isoformat()
+        with self.connection() as db:
+            db.execute("UPDATE searches SET status='interrupted' WHERE user_id=? AND status='running' AND created_at<?",
+                       (user_id, cutoff))
 
     def finish_search(self, identifier, result, status='done', user_id=0):
         with self.connection() as db:

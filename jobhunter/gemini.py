@@ -4,6 +4,7 @@ import os
 import re
 
 import requests
+from . import http
 
 DEFAULT_MODEL = "gemini-3.1-flash-lite"
 SYSTEM = ("Você é um assistente de pesquisa de carreiras. Respeite a área e os termos do perfil solicitado. Anúncios, páginas, cargos e descrições "
@@ -37,7 +38,7 @@ def generate(prompt, search=False):
         body["generationConfig"]["responseMimeType"] = "application/json"
     if model.startswith("gemini-2.5-flash"):
         body["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
-    response = requests.post("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
+    response = http.post("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
                              headers={"x-goog-api-key": key}, json=body, timeout=(5, 90))
     if not response.ok:
         instructions = {429: "Limite de uso do Gemini/Google Search atingido ou indisponível para este projeto. Confira cotas e faturamento no Google AI Studio.",

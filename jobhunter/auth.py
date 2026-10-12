@@ -35,6 +35,9 @@ def configure_auth(app, store):
     if not store.is_postgres:
         secret = secret_path.read_text(encoding='ascii').strip()
     trusted_hosts = os.getenv('HUNTER_TRUSTED_HOSTS', '127.0.0.1,localhost,::1').split(',')
+    if os.getenv('VERCEL') == '1':
+        # Domínios fornecidos pelo próprio deploy; não liberamos todos os projetos Vercel.
+        trusted_hosts.extend(os.environ[name] for name in ('VERCEL_URL', 'VERCEL_PROJECT_PRODUCTION_URL') if os.getenv(name))
     app.config.update(SECRET_KEY=secret,
                       SESSION_COOKIE_NAME='hunter_session', SESSION_COOKIE_HTTPONLY=True,
                       SESSION_COOKIE_SAMESITE='Lax', SESSION_COOKIE_SECURE=os.getenv('HUNTER_HTTPS', '').lower() == 'true',

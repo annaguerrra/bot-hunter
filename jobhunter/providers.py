@@ -10,6 +10,7 @@ from urllib.parse import urlencode, urljoin, urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 
 import requests
+from . import http
 from bs4 import BeautifulSoup
 
 import main
@@ -57,9 +58,10 @@ def validate_url(url):
 
 def public_get(url, params=None):
     """Checa também redirecionamentos; limita downloads e não encaminha credenciais."""
+    http.checkpoint()
     url = validate_url(url)
     for _ in range(5):
-        response = requests.get(url, params=params, timeout=(5, 20), allow_redirects=False,
+        response = http.get(url, params=params, timeout=(5, 20), allow_redirects=False,
                                 stream=True, headers={"User-Agent": USER_AGENT})
         params = None
         if response.is_redirect:
@@ -71,6 +73,7 @@ def public_get(url, params=None):
             response.raise_for_status()
             body = bytearray()
             for chunk in response.iter_content(65536):
+                http.checkpoint()
                 body.extend(chunk)
                 if len(body) > 4_000_000:
                     raise ValueError("A página excedeu o tamanho permitido.")
@@ -347,6 +350,7 @@ def jooble(filters, usage=None, user_id=0):
             results = usage.cached(keys[code], query) if usage else None
             try:
                 if results is None:
+                    http.checkpoint()
                     if usage:
                         from .usage import BudgetExceeded
                         try:
@@ -356,7 +360,7 @@ def jooble(filters, usage=None, user_id=0):
                             errors.append(str(exc))
                             continue
                     used += 1
-                    response = requests.post("https://" + jooble_host(code) + "/api/" + keys[code], json=query, timeout=25)
+                    response = http.post("https://" + jooble_host(code) + "/api/" + keys[code], json=query, timeout=25)
                     if usage and response.status_code == 429:
                         try:
                             retry = int(response.headers.get('Retry-After', '3600'))
@@ -427,6 +431,7 @@ def google_jobs(filters, usage=None, user_id=0):
                 cache_params = {name: value for name, value in params.items() if name != 'api_key'}
                 data = usage.cached('serp:' + key, cache_params) if usage else None
                 if data is None:
+                    http.checkpoint()
                     try:
                         if budget:
                             budget.reserve()
@@ -434,7 +439,7 @@ def google_jobs(filters, usage=None, user_id=0):
                         filters['_budget_limited'] = True
                         return jobs, notes + [str(exc)]
                     try:
-                        response = requests.get("https://serpapi.com/search.json", params=params, timeout=25)
+                        response = http.get("https://serpapi.com/search.json", params=params, timeout=25)
                         if response.status_code == 429 and budget:
                             budget.pause()
                         response.raise_for_status()
@@ -535,6 +540,7 @@ def run_search(filters, companies, usage=None, user_id=0):
     query_plan = matching.expand_queries(filters["keywords"], profile, filters.get("country", ""), filters.get("multilingual", True))
     for name, fetch, company in providers:
         try:
+            http.checkpoint()
             limit = 24 if company else 3 if name == "Google Empregos" else 6
             source_filters = {**filters, "keywords": query_plan[:limit]}
             if name == "Jooble" and not filters.get("country"):
@@ -556,6 +562,7 @@ def run_search(filters, companies, usage=None, user_id=0):
             accepted, review_count, below_count = 0, 0, 0
             source_seen = set()
             for job in found:
+                http.checkpoint()
                 if job["id"] in source_seen:
                     continue
                 source_seen.add(job["id"])
@@ -589,6 +596,10 @@ def run_search(filters, companies, usage=None, user_id=0):
                            "budget_limited": bool(source_filters.get('_budget_limited')),
                            "review": review_count, "below_minimum": below_count, "notes": notes,
                            "queries": source_filters["keywords"] if name != "Gemini / Google Search" else search_queries})
+        except http.SearchDeadlineExceeded as exc:
+            report.append({'name': name, 'status': 'limited', 'received': 0, 'matched': 0,
+                           'time_limited': True, 'notes': [str(exc)]})
+            break
         except NeedsConfiguration as exc:
             report.append({"name": name, "status": "pending", "received": 0, "matched": 0, "notes": [str(exc)]})
         except (requests.RequestException, ValueError, RuntimeError, OSError, KeyError, TypeError) as exc:
@@ -615,5 +626,6 @@ def run_search(filters, companies, usage=None, user_id=0):
     return {"jobs": [job for job in candidates if job["salary_check"]["status"] == "eligible"][:500],
             "review_jobs": [job for job in candidates if job["salary_check"]["status"] == "review"][:500],
             "research_sources": references, "query_plan": query_plan, "search_suggestions": search_suggestions,
-            "reports": report, "budget_limited": any(item.get('budget_limited') for item in report), "google_url": google_url(filters),
+            "reports": report, "budget_limited": any(item.get('budget_limited') for item in report),
+            "time_limited": any(item.get('time_limited') for item in report), "google_url": google_url(filters),
             "coverage": "Resultados das fontes e páginas consultadas; nenhuma busca garante todas as vagas do mundo."}

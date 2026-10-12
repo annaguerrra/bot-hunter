@@ -204,7 +204,7 @@ async function pollSearch(identifier, started = Date.now()) {
     setSearching(false);
     await loadHistory();
     await refreshUsage();
-    if (state.usage?.blocked || result.budget_limited) await showGuidance();
+    if (state.usage?.blocked || result.budget_limited || result.time_limited) await showGuidance();
     toast(`${state.jobs.length} oportunidades encontradas. Seu radar foi atualizado.`);
   } catch (error) {
     setSearching(false);
@@ -342,12 +342,42 @@ $("#notify-form").addEventListener("submit", (event) => {
     const button = $("#notify-form button");
     button.disabled = true;
     try {
-      const result = await api("/api/notify", { method: "POST", body: JSON.stringify({ ids: [...state.selected], search_id: state.searchId, channels: $$('input[name="channel"]:checked').map((input) => input.value) }) });
+      const result = await sendSelectedAlerts([...state.selected], $$('input[name="channel"]:checked').map((input) => input.value));
       toast(result.reports.map((report) => `${report.channel === "email" ? "E-mail" : "Telegram"}: ${report.status === "ok" ? report.sent + " vagas enviadas" : report.note}`).join(" · "), result.reports.some((report) => report.status === "error"));
       $("#notify-dialog").close();
     } finally { button.disabled = false; }
   });
 });
+
+async function sendSelectedAlerts(ids, channels) {
+  const send = (selection, destinations) => api("/api/notify", { method: "POST", body: JSON.stringify({ ids: selection, search_id: state.searchId, channels: destinations }) });
+  const batchSize = state.config.limits?.telegram_batch_jobs || 100;
+  if (!channels.includes("telegram") || ids.length <= batchSize) return send(ids, channels);
+  // O e-mail mantém um único lote na fila; Telegram confirma cada lote no Neon.
+  const reports = channels.includes("email") ? (await send(ids, ["email"])).reports : [];
+  let sent = 0;
+  for (let offset = 0; offset < ids.length; offset += batchSize) {
+    let report;
+    try {
+      report = (await send(ids.slice(offset, offset + batchSize), ["telegram"])).reports[0];
+    } catch (error) {
+      // Interrompemos em falhas incertas. Repetir respeita os envios já confirmados.
+      report = { channel: "telegram", status: "error", sent: 0, note: error.message };
+    }
+    sent += report.sent || 0;
+    if (report.status === "error") {
+      reports.push({ ...report, sent, note: `${sent} vagas enviadas. ${report.note}` });
+      return { reports };
+    }
+    if (offset + batchSize < ids.length) {
+      toast(`Telegram: ${Math.min(offset + batchSize, ids.length)} de ${ids.length} vagas processadas.`);
+      // Espaçamento também protege chats de grupo entre funções independentes.
+      await new Promise((resolve) => setTimeout(resolve, 3100));
+    }
+  }
+  reports.push({ channel: "telegram", status: "ok", sent });
+  return { reports };
+}
 $("#company-form").addEventListener("submit", (event) => {
   event.preventDefault();
   guarded(async () => {

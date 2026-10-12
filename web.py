@@ -19,6 +19,7 @@ from jobhunter.auth import configure_auth, contacts_for, public_user
 from jobhunter.delivery import TelegramPacer
 from jobhunter.configuration import load_settings, save_settings
 from jobhunter.usage import UsageBudget
+from jobhunter import http
 
 BASE = Path(__file__).resolve().parent
 MAX_NOTIFY_JOBS = 100
@@ -88,8 +89,9 @@ def validate_filters(body, companies):
 def create_app(db_path=None):
     app = Flask(__name__)
     app.config.update(MAX_CONTENT_LENGTH=100_000, JSON_SORT_KEYS=False)
+    serverless = os.getenv('HUNTER_SERVERLESS', '').lower() == 'true'
     app.json.ensure_ascii = False
-    store = Store(db_path or BASE / "data" / "hunter.sqlite", database_url=os.getenv('DATABASE_URL', '') if db_path is None else '')
+    store = Store(db_path or BASE / "data" / "hunter.sqlite", database_url=os.getenv('DATABASE_URL', '') if db_path is None else '', recover_searches=not serverless)
     load_settings(store)
     usage = UsageBudget(store.path, store.database_url)
     app.extensions['usage'] = usage
@@ -155,7 +157,7 @@ def create_app(db_path=None):
         return jsonify(regions=[{"code": code, "name": name} for code, name in geo.REGIONS.items()],
                        countries=geo.COUNTRIES, companies=store.companies(g.user['id']), user=public_user(g.user),
                        preferences=g.user['preferences'],
-                       limits={'max_notify_jobs': MAX_NOTIFY_JOBS},
+                       limits={'max_notify_jobs': MAX_NOTIFY_JOBS, 'telegram_batch_jobs': 1 if serverless else MAX_NOTIFY_JOBS},
                        jooble_countries=list(providers.jooble_keys()), jooble_markets=MARKETS,
                         integrations={"jooble": bool(providers.jooble_keys()), "google": configured("SERPAPI_API_KEY"), "gemini": configured("GEMINI_API_KEY") and os.getenv('GEMINI_ENABLED', 'true').lower() == 'true',
                                      "telegram": configured("TELEGRAM_BOT_TOKEN") and bool(contacts_for(g.user).get('telegram_chat_id')),
@@ -280,7 +282,8 @@ def create_app(db_path=None):
         if not search_slots.acquire(blocking=False):
             return jsonify(error='Há pesquisas em andamento. Aguarde antes de descobrir empresas.'), 429
         try:
-            result = suggest_companies(filters, store.companies(g.user['id']))
+            with http.deadline(240 if serverless else None):
+                result = suggest_companies(filters, store.companies(g.user['id']))
             identifier = uuid.uuid4().hex
             store.start_search(identifier, filters, g.user['id'])
             store.finish_search(identifier, result, user_id=g.user['id'])
@@ -342,7 +345,10 @@ def create_app(db_path=None):
 
     def execute_search(identifier, filters, companies, user_id):
         try:
-            store.finish_search(identifier, providers.run_search(filters, companies, usage=usage, user_id=user_id), user_id=user_id)
+            # No Vercel o trabalho termina antes de responder; o Neon guarda seu resultado.
+            with http.deadline(240 if serverless else None):
+                result = providers.run_search(filters, companies, usage=usage, user_id=user_id)
+            store.finish_search(identifier, result, user_id=user_id)
         except Exception as exc:
             store.finish_search(identifier, {"error": f"A busca falhou ({type(exc).__name__}). Tente novamente."}, 'error', user_id=user_id)
         finally:
@@ -359,19 +365,26 @@ def create_app(db_path=None):
         identifier = uuid.uuid4().hex
         try:
             store.start_search(identifier, filters, g.user['id'])
-            executor.submit(execute_search, identifier, filters, companies, g.user['id'])
+            if not serverless:
+                executor.submit(execute_search, identifier, filters, companies, g.user['id'])
         except Exception:
             search_slots.release()
             raise
+        if serverless:
+            execute_search(identifier, filters, companies, g.user['id'])
         return jsonify(id=identifier, status="running"), 202
 
     @app.get("/api/search/<identifier>")
     def get_search(identifier):
+        if serverless:
+            store.expire_searches(g.user['id'])
         found = store.search(identifier, g.user['id'])
         return jsonify(found) if found else (jsonify(error="Busca não encontrada."), 404)
 
     @app.get("/api/searches")
     def searches():
+        if serverless:
+            store.expire_searches(g.user['id'])
         return jsonify(searches=store.recent_searches(g.user['id']))
 
     @app.get("/api/search/<identifier>/grounding")
@@ -415,6 +428,8 @@ def create_app(db_path=None):
             raise ValueError(f'Selecione de 1 a {MAX_NOTIFY_JOBS} vagas para enviar.')
         if not isinstance(channels, list) or not channels or any(item not in {"telegram", "email"} for item in channels):
             raise ValueError("Selecione Telegram ou e-mail.")
+        if serverless and 'telegram' in channels and len(ids) > 1:
+            raise ValueError('Na interface pública, envie o Telegram em lotes de uma vaga. O painel divide sua seleção automaticamente.')
         jobs = [find_job(identifier, body.get("search_id", "")) for identifier in dict.fromkeys(ids)]
         if any(job is None for job in jobs):
             raise ValueError("Uma das vagas não foi encontrada.")
@@ -447,7 +462,7 @@ def create_app(db_path=None):
                         if not recipient:
                             raise ValueError('Cadastre seu e-mail de alertas em Meu perfil.')
                         settings = main.email_settings(recipient)
-                        if os.getenv('EMAIL_DELIVERY_MODE') == 'queue' and settings['provider'] == 'smtp':
+                        if os.getenv('EMAIL_DELIVERY_MODE') == 'queue':
                             from jobhunter.email_queue import EmailQueue
                             if not store.rate_limit(f'email-queue:{g.user["id"]}', 5, 86400):
                                 raise ValueError('Limite de cinco lotes de e-mail por dia atingido.')

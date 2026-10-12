@@ -6,6 +6,7 @@ import time
 from datetime import date
 
 import requests
+from . import http
 import pycountry
 
 from .matching import normalize
@@ -24,7 +25,7 @@ def exchange_rate(currency):
         cached = _cache.get(currency)
         if cached and time.monotonic() - cached[0] < 28800:
             return cached[1], cached[2]
-        response = requests.get("https://api.frankfurter.dev/v2/rate/" + currency.lower() + "/brl", timeout=(5, 15))
+        response = http.get("https://api.frankfurter.dev/v2/rate/" + currency.lower() + "/brl", timeout=(5, 15))
         response.raise_for_status()
         data = response.json()
         rate, rate_date = float(data["rate"]), str(data["date"])
