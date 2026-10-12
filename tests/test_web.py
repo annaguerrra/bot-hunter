@@ -165,6 +165,10 @@ class WebTests(unittest.TestCase):
         page = self.client.get("/").get_data(as_text=True)
         self.csrf = re.search(r'name="hunter-csrf" content="([^"]+)"', page).group(1)
         self.headers = {"X-Hunter-CSRF": self.csrf}
+        account = self.client.post('/api/auth/register', json={'name': 'Tester', 'email': 'tester@example.org', 'password': 'test-password-long'}, headers=self.headers)
+        self.assertEqual(account.status_code, 201)
+        self.user_id = account.json['user']['id']
+        self.headers = {'X-Hunter-CSRF': account.json['csrf']}
 
     def tearDown(self):
         self.app.extensions["executor"].shutdown(wait=True)
@@ -197,8 +201,8 @@ class WebTests(unittest.TestCase):
         job = self.client.get("/api/search/" + identifier).json["jobs"][0]
         self.assertEqual(self.client.post("/api/favorites", json={"id": job["id"], "search_id": identifier}, headers=self.headers).status_code, 200)
         reloaded = Store(self.path)
-        self.assertEqual(reloaded.favorites()[0]["title"], "Production Engineer")
-        self.assertEqual(reloaded.recent_searches()[0]["id"], identifier)
+        self.assertEqual(reloaded.favorites(self.user_id)[0]["title"], "Production Engineer")
+        self.assertEqual(reloaded.recent_searches(self.user_id)[0]["id"], identifier)
         self.assertEqual(self.client.delete("/api/favorites/" + job["id"], headers=self.headers).status_code, 200)
         self.assertEqual(self.client.get("/api/favorites").json["jobs"], [])
 
@@ -225,8 +229,8 @@ class WebTests(unittest.TestCase):
         self.assertEqual(second["reports"][0]["sent"], 0)
         self.assertEqual(email.call_count, 2)
         telegram.assert_called_once()
-        self.assertTrue(self.app.extensions["store"].delivered(job["id"], "telegram"))
-        self.assertFalse(self.app.extensions["store"].delivered(job["id"], "email"))
+        self.assertTrue(self.app.extensions['store'].delivered(job['id'], 'telegram', self.user_id))
+        self.assertFalse(self.app.extensions['store'].delivered(job['id'], 'email', self.user_id))
 
     def test_google_key_stays_local_and_is_never_echoed(self):
         key = "0123456789abcdef" * 4
@@ -262,8 +266,9 @@ class WebTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_removing_all_companies_remains_empty_after_restart(self):
-        self.app.extensions["store"].update_company(1, remove=True)
-        self.assertEqual(Store(self.path).companies(), [])
+        for company in self.app.extensions['store'].companies(self.user_id):
+            self.app.extensions['store'].update_company(company['id'], remove=True, user_id=self.user_id)
+        self.assertEqual(Store(self.path).companies(self.user_id), [])
 
 
 if __name__ == "__main__":

@@ -133,8 +133,10 @@ class IntegrationTests(unittest.TestCase):
             client = app.test_client()
             import re
             token = re.search(r'name="hunter-csrf" content="([^"]+)"', client.get("/").get_data(as_text=True)).group(1)
+            account = client.post('/api/auth/register', json={'name': 'Tester', 'email': 'tester@example.org', 'password': 'test-password-long'}, headers={'X-Hunter-CSRF': token})
+            token = account.json['csrf']
             old = job(pay="")
-            app.extensions["store"].favorite(old)
+            app.extensions['store'].favorite(old, user_id=account.json['user']['id'])
             with patch.object(main, "send_telegram") as send:
                 result = client.post("/api/notify", json={"ids": [old["id"]], "channels": ["telegram"]}, headers={"X-Hunter-CSRF": token})
             send.assert_not_called()
@@ -147,8 +149,10 @@ class IntegrationTests(unittest.TestCase):
             client = app.test_client()
             import re
             token = re.search(r'name="hunter-csrf" content="([^"]+)"', client.get("/").get_data(as_text=True)).group(1)
+            account = client.post('/api/auth/register', json={'name': 'Tester', 'email': 'tester@example.org', 'password': 'test-password-long'}, headers={'X-Hunter-CSRF': token})
+            token = account.json['csrf']
             old = job("Coordenador de Obras - Engenheiro Civil", pay="R$ 9000 mensal")
-            app.extensions["store"].favorite(old)
+            app.extensions['store'].favorite(old, user_id=account.json['user']['id'])
             with patch.object(main, "send_telegram") as send:
                 response = client.post("/api/notify", json={"ids": [old["id"]], "channels": ["telegram"]}, headers={"X-Hunter-CSRF": token})
             send.assert_not_called()

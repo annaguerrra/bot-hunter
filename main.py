@@ -191,7 +191,7 @@ def notification_settings():
     return channels
 
 
-def email_settings():
+def email_settings(recipient=None):
     """Lê credenciais SMTP necessárias para enviar e-mails, sem expô-las no código."""
     # Para começar: Gmail SMTP (smtp.gmail.com:465 + senha DE APLICATIVO).
     # EMAIL_TO pode conter mais de um e-mail, separado por ponto e vírgula.
@@ -205,7 +205,7 @@ def email_settings():
         "host": os.getenv("SMTP_HOST", "smtp.gmail.com").strip(),
         "port": port,
         "sender": required_env("EMAIL_FROM"),
-        "to": split_terms(required_env("EMAIL_TO")),
+        "to": split_terms(recipient if recipient is not None else required_env("EMAIL_TO")),
         "password": required_env("EMAIL_APP_PASSWORD"),
     }
 

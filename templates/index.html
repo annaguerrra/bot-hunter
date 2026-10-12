@@ -8,6 +8,7 @@
   <title>Bot Hunter · Seu próximo passo</title>
   <link rel="icon" href="/assets/bot-profile.png">
   <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/account.css">
   <script src="/static/app.js" defer></script>
 </head>
 <body>
@@ -29,7 +30,7 @@
 </svg>
 <aside class="sidebar">
   <a class="brand" href="#explore"><img src="/assets/bot-profile.png" alt="Mascote do Bot Hunter"><span>bot<span class="brand-light">hunter</span><small>OPORTUNIDADES SEM FRONTEIRAS</small></span></a>
-  <div class="workspace"><span class="workspace-avatar">A</span><div>Meu espaço<small>Radar pessoal de vagas</small></div><span class="workspace-dot"></span></div>
+  <div class="workspace"><span class="workspace-avatar" data-user-initial>A</span><div><span id="workspace-name">Meu espaço</span><small>Radar pessoal de vagas</small></div><span class="workspace-dot"></span></div>
   <p class="nav-caption">SEU RADAR</p>
   <nav aria-label="Navegação principal">
     <a href="#explore" class="nav-link active" data-view="explore"><svg><use href="#i-globe"/></svg>Explorar vagas<span class="nav-arrow">↗</span></a>
@@ -37,12 +38,13 @@
     <a href="#favorites" class="nav-link" data-view="favorites"><svg><use href="#i-heart"/></svg>Vagas salvas<span id="favorite-count" class="nav-count">0</span></a>
     <a href="#history" class="nav-link" data-view="history"><svg><use href="#i-clock"/></svg>Histórico</a>
     <a href="#integrations" class="nav-link" data-view="integrations"><svg><use href="#i-settings"/></svg>Integrações</a>
+    <a href="#profile" class="nav-link" data-view="profile"><svg><use href="#i-briefcase"/></svg>Meu perfil</a>
   </nav>
   <div class="sidebar-note"><div class="orbit-mark">↗</div><strong>O mundo é seu próximo destino.</strong><p>Explore novas possibilidades, uma oportunidade de cada vez.</p><a href="#companies">Adicionar uma empresa <span>→</span></a></div>
   <div class="sidebar-footer"><span class="live-dot"></span>Seu radar, no seu computador<small>Bot Hunter · versão global</small></div>
 </aside>
 <main>
-  <header class="topbar"><span><span class="breadcrumb">Meu espaço</span><span class="crumb-slash">/</span><span id="page-name">Explorar vagas</span></span><div class="topbar-right"><span class="connection"><span class="live-dot"></span>Radar conectado</span><span class="user-avatar">A</span></div></header>
+  <header class="topbar"><span><span class="breadcrumb">Meu espaço</span><span class="crumb-slash">/</span><span id="page-name">Explorar vagas</span></span><div class="topbar-right"><span class="user-avatar" data-user-initial>A</span><button id="logout" type="button" class="text-button">Sair</button></div></header>
 
   <section id="view-explore" class="view">
     <div class="hero">
@@ -56,7 +58,7 @@
         <form id="search-form">
           <label for="profile">Área de engenharia</label><select id="profile"><option value="both">Produto e produção / manufatura</option><option value="product">Produto / desenvolvimento / projeto mecânico</option><option value="production">Produção / manufatura / processos industriais</option><option value="custom">Termos personalizados</option></select>
           <label for="keywords">Cargo ou palavras-chave</label><textarea id="keywords" rows="2" placeholder="product engineer;engenheiro de produto" required maxlength="300"></textarea><p class="field-help">Até 3 termos separados por ;. Os perfis de engenharia ampliam os termos com sinônimos e idiomas locais.</p>
-          <label for="salary-min">Salário mínimo · R$ por mês</label><input id="salary-min" type="number" min="7000" max="1000000" value="7000" step="100" required><p class="field-help">Outras moedas são convertidas para reais. Salário ausente ou incerto fica separado para análise, sem alerta.</p>
+          <label for="salary-min">Salário mínimo · R$ por mês</label><input id="salary-min" type="number" min="7000" max="1000000" value="7000" step="100" required><p class="field-help">Outras moedas são convertidas para reais. Salário ausente ou incerto fica separado para análise, sem alerta. Para outros ramos, escolha o perfil personalizado e defina seu mínimo.</p>
           <label for="region">Região do mundo</label><select id="region"><option value="">Mundo todo</option></select>
           <label for="country">País</label><select id="country"><option value="">Todos os países</option></select>
           <label for="state">Estado / província</label><select id="state" disabled><option value="">Selecione um país primeiro</option></select>
@@ -88,7 +90,7 @@
     </div>
   </section>
 
-  <section id="view-companies" class="view hidden"><div class="page-heading"><span class="eyebrow">SUAS PRÓXIMAS POSSIBILIDADES</span><h1>Empresas no seu radar.</h1><p>Cadastre uma página de carreiras e encontre vagas direto na fonte.</p></div><div class="company-layout"><div><div id="companies-list" class="companies-list"></div></div><form id="company-form" class="surface add-company"><div class="form-icon"><svg><use href="#i-building"/></svg></div><h2>Adicionar uma empresa</h2><p>Vamos identificar a plataforma de vagas automaticamente.</p><label for="company-name">Nome da empresa</label><input id="company-name" placeholder="Ex.: Bosch" required maxlength="80"><label for="company-url">Página de carreiras</label><input id="company-url" type="url" placeholder="https://careers.empresa.com" required maxlength="1000"><button type="submit" class="button primary"><svg><use href="#i-plus"/></svg>Adicionar ao radar</button><p class="field-help">SmartRecruiters, Greenhouse e Lever têm integração direta. Outros sites são consultados por seus anúncios públicos estruturados; a compatibilidade varia por site.</p></form></div></section>
+  <section id="view-companies" class="view hidden"><div class="page-heading"><span class="eyebrow">SUAS PRÓXIMAS POSSIBILIDADES</span><h1>Empresas no seu radar.</h1><p>Cadastre uma página de carreiras e encontre vagas direto na fonte.</p></div>{% include 'discovery_panel.html' %}<div class="company-layout"><div><div id="companies-list" class="companies-list"></div></div><form id="company-form" class="surface add-company"><div class="form-icon"><svg><use href="#i-building"/></svg></div><h2>Adicionar uma empresa</h2><p>Vamos identificar a plataforma de vagas automaticamente.</p><label for="company-name">Nome da empresa</label><input id="company-name" placeholder="Ex.: Bosch" required maxlength="80"><label for="company-url">Página de carreiras</label><input id="company-url" type="url" placeholder="https://careers.empresa.com" required maxlength="1000"><button type="submit" class="button primary"><svg><use href="#i-plus"/></svg>Adicionar ao radar</button><p class="field-help">SmartRecruiters, Greenhouse e Lever têm integração direta. Outros sites são consultados por seus anúncios públicos estruturados; a compatibilidade varia por site.</p></form></div></section>
 
   <section id="view-favorites" class="view hidden"><div class="page-heading"><span class="eyebrow">GUARDE O QUE FAZ SENTIDO</span><h1>Seus próximos passos, salvos.</h1><p>As oportunidades que você quer olhar com mais calma.</p></div><div id="favorites-list" class="jobs-list"></div></section>
 
@@ -99,6 +101,7 @@
   <section id="gemini-settings" class="surface google-connect hidden"><div><span class="form-icon"><svg><use href="#i-search"/></svg></span><h2>Gemini com pesquisa no Google</h2><p>Pesquisa anúncios em vários idiomas e avalia a compatibilidade das vagas. Fontes da pesquisa ficam disponíveis nos resultados; o anúncio fornece os dados de salário.</p><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="field-link">Criar chave no Google AI Studio ↗</a><p class="field-help">As buscas e avaliações usam a cota da sua conta Google. Esta integração é independente da SerpAPI.</p></div><form id="gemini-form"><label for="gemini-key">Chave Gemini</label><input id="gemini-key" type="password" autocomplete="off" placeholder="Cole sua chave aqui" required><button class="button primary" type="submit">Conectar Gemini<svg><use href="#i-arrow"/></svg></button><p class="field-help">A chave fica no .env privado e não aparece nas respostas da aplicação.</p></form></section>
   <p id="gemini-billing-note" class="field-help hidden">A pesquisa Google dos modelos Gemini 3 requer acesso ao plano com faturamento. Se aparecer 429, confira <a href="https://aistudio.google.com/usage" target="_blank" rel="noopener noreferrer">os limites do projeto</a> e a <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer">tabela de disponibilidade</a>. A classificação das vagas pode funcionar mesmo quando a pesquisa estiver indisponível.</p>
   <section id="jooble-guide" class="surface hidden"><h2>Todas as chaves regionais da Jooble</h2><p>A Jooble divulga 66 mercados. A chave de cada país é solicitada no site correspondente; não existe uma chave mundial. Lista conferida em 12/10/2026.</p><ol><li>Clique em <strong>Solicitar chave</strong> para o país.</li><li>Preencha nome, cargo, e-mail e telefone com seus dados. Em Website, informe o endereço público real do projeto, como <a href="https://github.com/annaguerrra/bot-hunter" target="_blank" rel="noopener noreferrer">seu repositório</a>, se o formulário aceitar. Se exigir uma aplicação publicada, use a URL pública quando houver.</li><li>Aguarde a resposta da Jooble e copie a chave recebida.</li><li>Clique em <strong>Cadastrar</strong>, cole a chave no formulário acima e salve. Repita para os outros países.</li></ol><p>O plano gratuito informa 500 consultas por chave durante toda a sua validade. A aprovação e a disponibilidade da API podem variar por mercado. <a href="https://help.jooble.org/en/support/solutions/articles/60001448238-rest-api-documentation" target="_blank" rel="noopener noreferrer">Documentação oficial ↗</a></p><div id="jooble-checklist"></div></section>
+  {% include 'account_panel.html' %}
   <footer class="main-footer">Feito para descobrir possibilidades.<span>bot hunter <span class="footer-star">✧</span></span></footer>
 </main>
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>

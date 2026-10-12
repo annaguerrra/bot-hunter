@@ -8,3 +8,5 @@ data/*.db-*
 data/*.sqlite*
 logs/
 data/salary_review.json
+data/*.key
+data/*.bak

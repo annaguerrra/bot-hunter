@@ -539,7 +539,7 @@ def run_search(filters, companies):
     if "gemini" in filters["sources"] and candidates and os.getenv("GEMINI_API_KEY", "").strip() and not os.getenv("GEMINI_API_KEY", "").startswith("COLE_"):
         try:
             from . import gemini
-            gemini.rank_jobs(candidates, profile)
+            gemini.rank_jobs(candidates, profile, filters)
             report.append({"name": "Avaliação Gemini", "status": "ok", "received": min(len(candidates), 80), "matched": 0,
                            "notes": ["IA ordena até 80 vagas. O filtro de área e o salário mínimo continuam obrigatórios."]})
         except (requests.RequestException, RuntimeError, ValueError, KeyError, TypeError):

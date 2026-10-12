@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="hunter-csrf" content="{{ csrf }}"><title>Entrar · Bot Hunter</title><link rel="icon" href="/assets/bot-profile.png"><link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/account.css"><script src="/static/login.js" defer></script></head>
+<body class="auth-page">
+  <div class="auth-story"><a class="brand" href="/"><img src="/assets/bot-profile.png" alt="Mascote"><span>bot<span class="brand-light">hunter</span><small>OPORTUNIDADES SEM FRONTEIRAS</small></span></a><span class="eyebrow">UM RADAR QUE TEM A SUA CARA</span><h1>Sua carreira.<br>Seu caminho.<br><span>Seu próximo passo.</span></h1><p>Encontre vagas em outros países, acompanhe empresas e guarde as oportunidades que combinam com você.</p><div class="auth-pills"><span>Seu perfil</span><span>Suas empresas</span><span>Seus favoritos</span></div></div>
+  <div class="auth-panel"><section class="surface auth-card" data-first="{{ 'true' if first_account else 'false' }}">
+    <span class="eyebrow">BEM-VINDA AO SEU RADAR</span><h2 id="auth-title">{{ 'Crie sua primeira conta' if first_account else 'Entre na sua conta' }}</h2>
+    <p id="auth-description">{{ 'A primeira conta será administradora e receberá as empresas e o histórico já existentes neste computador.' if first_account else 'Suas preferências e oportunidades ficam no seu espaço pessoal.' }}</p>
+    <form id="auth-form">
+      <div id="register-fields" {% if not first_account %}class="hidden"{% endif %}><label for="auth-name">Seu nome</label><input id="auth-name" autocomplete="name" maxlength="80" {% if first_account %}required{% endif %}></div>
+      <label for="auth-email">E-mail</label><input id="auth-email" type="email" autocomplete="username" maxlength="254" required>
+      <label for="auth-password">Senha</label><input id="auth-password" type="password" autocomplete="{{ 'new-password' if first_account else 'current-password' }}" maxlength="128" minlength="{{ 12 if first_account else 1 }}" required>
+      <div id="confirm-fields" {% if not first_account %}class="hidden"{% endif %}><label for="auth-confirm">Repita sua senha</label><input id="auth-confirm" type="password" autocomplete="new-password" maxlength="128" {% if first_account %}required{% endif %}><p class="field-help">Use uma senha com pelo menos 12 caracteres.</p><span {% if not setup_required %}class="hidden"{% endif %}><label for="setup-token">Código de instalação <span class="optional">se solicitado pela administração</span></label><input id="setup-token" type="password" autocomplete="off" maxlength="256"></span></div>
+      <p id="auth-error" class="account-error hidden" role="alert"></p>
+      <button id="auth-submit" class="button primary" type="submit">{{ 'Criar meu radar' if first_account else 'Entrar no meu radar' }}</button>
+    </form>
+    {% if registration_open %}<button id="auth-switch" class="text-button" type="button">{{ 'Já tenho conta · Entrar' if first_account else 'Ainda não tenho conta · Criar conta' }}</button>{% endif %}
+    <p class="field-help">Cada conta mantém seu histórico, favoritos, preferências e destinatários de alertas separados.</p>
+  </section></div>
+</body></html>

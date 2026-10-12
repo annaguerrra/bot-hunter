@@ -4,6 +4,7 @@ Uso: .venv\Scripts\python.exe scripts\check_ui.py
 Requer web.py em execução. Não envia mensagens nem altera credenciais.
 """
 import json
+import os
 import re
 from pathlib import Path
 
@@ -20,8 +21,17 @@ with sync_playwright() as runtime:
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
     page.goto("http://127.0.0.1:5000", wait_until="networkidle")
+    if page.locator('#auth-form').count():
+        if not os.getenv('HUNTER_QA_EMAIL') or not os.getenv('HUNTER_QA_PASSWORD'):
+            raise RuntimeError('Crie sua conta e defina HUNTER_QA_EMAIL/HUNTER_QA_PASSWORD para este teste autenticado. Para contas fictícias, use check_accounts_ui.py numa instância temporária.')
+        if page.locator('.auth-card').get_attribute('data-first') == 'true':
+            raise RuntimeError('Crie sua primeira conta na interface antes deste teste.')
+        page.locator('#auth-email').fill(os.environ['HUNTER_QA_EMAIL'])
+        page.locator('#auth-password').fill(os.environ['HUNTER_QA_PASSWORD'])
+        page.locator('#auth-submit').click()
+        expect(page.locator('#search-form')).to_be_visible(timeout=20000)
     expect(page.locator("#country option")).to_have_count(250)
-    expect(page.locator("#company-count")).to_have_text("1")
+    assert int(page.locator('#company-count').inner_text()) >= 5
     expect(page.locator("#salary-min")).to_have_value("7000")
     expect(page.locator("#profile")).to_have_value("both")
     page.screenshot(path=str(OUT / "desktop-home.png"), full_page=True)

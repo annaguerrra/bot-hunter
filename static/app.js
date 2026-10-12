@@ -4,7 +4,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const state = { config: null, jobs: [], favorites: [], selected: new Set(), searchId: "", history: [], searching: false, salaryView: "eligible" };
 const money = (value) => Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const csrf = $('meta[name="hunter-csrf"]').content;
+let csrf = $('meta[name="hunter-csrf"]').content;
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 const icon = (name) => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const countryName = (code) => state.config.countries.find((country) => country.code === code)?.name || "Mundo todo";
@@ -23,6 +23,7 @@ function toast(message, error = false) {
 async function api(path, options = {}) {
   const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", "X-Hunter-CSRF": csrf, ...options.headers } });
   const body = await response.json().catch(() => ({ error: "Não foi possível ler a resposta da aplicação." }));
+  if (response.status === 401 && !path.startsWith('/api/auth/')) { location.replace('/'); }
   if (!response.ok) throw new Error(body.error || "Não foi possível completar esta ação.");
   return body;
 }
@@ -84,6 +85,10 @@ function updateGoogleLink() {
 
 async function refreshConfig() {
   state.config = await api("/api/config");
+  $('#workspace-name').textContent = state.config.user.name;
+  $$('[data-user-initial]').forEach((item) => item.textContent = state.config.user.name.slice(0, 1).toUpperCase());
+  $('#google-form').closest('.google-connect').classList.toggle('hidden', state.config.user.role !== 'admin');
+  $('#jooble-guide').dataset.admin = String(state.config.user.role === 'admin');
   $("#company-count").textContent = state.config.companies.length;
   ["google", "jooble", "gemini"].forEach((name) => $("#" + name + "-status").className = "source-dot " + (state.config.integrations[name] ? "ready" : "pending"));
   $("#google-setup-hint").classList.toggle("hidden", state.config.integrations.google);
@@ -254,7 +259,8 @@ async function restoreFilters(saved) {
   $("#excluded").value = saved.excluded.join(";");
   $("#pages").value = String(saved.pages);
   $("#profile").value = saved.profile || "both";
-  $("#salary-min").value = saved.salary_min || 7000;
+  $("#salary-min").value = saved.salary_min ?? 7000;
+  updateSalaryFloor();
   $("#multilingual").checked = saved.multilingual !== false;
   $$('input[name="source"]').forEach((input) => input.checked = saved.sources.includes(input.value));
   updateGoogleLink();
@@ -262,16 +268,17 @@ async function restoreFilters(saved) {
 
 async function navigate() {
   let view = location.hash.slice(1) || "explore";
-  if (!["explore", "companies", "favorites", "history", "integrations"].includes(view)) view = "explore";
+  if (!["explore", "companies", "favorites", "history", "integrations", "profile"].includes(view)) view = "explore";
   $$(".view").forEach((section) => section.classList.toggle("hidden", section.id !== `view-${view}`));
-  $("#jooble-settings").classList.toggle("hidden", view !== "integrations");
-  $("#gemini-settings").classList.toggle("hidden", view !== "integrations");
+  $("#jooble-settings").classList.toggle("hidden", view !== "integrations" || state.config.user.role !== 'admin');
+  $("#gemini-settings").classList.toggle("hidden", view !== "integrations" || state.config.user.role !== 'admin');
   $("#jooble-guide").classList.toggle("hidden", view !== "integrations");
   $("#gemini-billing-note").classList.toggle("hidden", view !== "integrations");
   $$(".nav-link").forEach((link) => link.classList.toggle("active", link.dataset.view === view));
-  $("#page-name").textContent = { explore: "Explorar vagas", companies: "Empresas", favorites: "Vagas salvas", history: "Histórico", integrations: "Integrações" }[view];
+  $("#page-name").textContent = { explore: "Explorar vagas", companies: "Empresas", favorites: "Vagas salvas", history: "Histórico", integrations: "Integrações", profile: 'Meu perfil' }[view];
   if (view === "favorites") await loadFavorites();
   if (view === "history") await loadHistory();
+  if (view === 'profile') await loadProfile();
 }
 
 async function guarded(action) {
@@ -428,7 +435,72 @@ guarded(async () => {
     .map((region) => `<button type="button" class="chip${!region.code ? " active" : ""}" data-region="${region.code}" aria-pressed="${!region.code}">${!region.code ? icon("globe") : ""}${region.name}</button>`).join("");
   $("#keywords").value = state.config.defaults.keywords;
   renderCountries();
+  if (state.config.preferences.keywords) await restoreFilters(state.config.preferences);
   updateGoogleLink();
   await loadFavorites();
   await navigate();
+});
+function updateSalaryFloor() {
+  const minimum = $('#profile').value === 'custom' ? 0 : 7000;
+  $('#salary-min').min = minimum;
+  if (Number($('#salary-min').value) < minimum) $('#salary-min').value = minimum;
+}
+$('#profile').addEventListener('change', updateSalaryFloor);
+$('#logout').addEventListener('click', () => guarded(async () => { await api('/api/auth/logout', {method:'POST'}); location.replace('/'); }));
+
+async function loadProfile() {
+  const result = await api('/api/profile');
+  $('#profile-name').value = result.user.name;
+  $('#profile-email').textContent = result.user.email + (result.user.role === 'admin' ? ' · Administração' : ' · Conta pessoal');
+  $('#profile-email-to').value = result.contacts.email_to || '';
+  $('#profile-chat').value = result.contacts.telegram_chat_id || '';
+  const prefs = result.preferences;
+  $('#preferences-summary').textContent = prefs.keywords ? `${prefs.keywords.join(' / ')} · ${prefs.country ? countryName(prefs.country) : regionName(prefs.region)} · ${money(prefs.salary_min)} por mês` : 'Você ainda não salvou um padrão. Os filtros de engenharia estão disponíveis para começar.';
+}
+$('#save-preferences').addEventListener('click', () => guarded(async () => {
+  await api('/api/preferences', {method:'POST',body:JSON.stringify(filters())});
+  await refreshConfig();
+  await loadProfile();
+  toast('Suas preferências foram salvas para a próxima visita.');
+}));
+$('#profile-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  guarded(async () => {
+    await api('/api/profile', {method:'PATCH',body:JSON.stringify({name:$('#profile-name').value,contacts:{email_to:$('#profile-email-to').value,telegram_chat_id:$('#profile-chat').value}})});
+    await refreshConfig(); toast('Perfil e destinatários atualizados.');
+  });
+});
+$('#password-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  guarded(async () => {
+    if ($('#new-password').value !== $('#confirm-password').value) throw new Error('As novas senhas precisam ser iguais.');
+    const result = await api('/api/auth/password', {method:'POST',body:JSON.stringify({password:$('#current-password').value,new_password:$('#new-password').value})});
+    csrf = result.csrf;
+    $('#password-form').reset(); toast('Senha alterada. Suas outras sessões foram encerradas.');
+  });
+});
+$('#discover-companies').addEventListener('click', () => guarded(async () => {
+  const button = $('#discover-companies'); button.disabled = true;
+  $('#discovery-notes').textContent = 'Pesquisando páginas de carreira e verificando anúncios compatíveis…';
+  try {
+    const result = await api('/api/companies/discover', {method:'POST',body:JSON.stringify(filters())});
+    state.discovery = result.companies;
+    $('#discovery-notes').innerHTML = result.notes.map((note) => `<p>${esc(note)}</p>`).join('');
+    $('#discovery-results').innerHTML = result.companies.length ? result.companies.map((company, index) => `<article class="company-card"><h3>${esc(company.name)}</h3><span class="tag source">${esc(company.origin)}</span><div class="discovery-evidence">${company.evidence.map((job) => `<a href="${esc(job.url)}" target="_blank" rel="noopener noreferrer">${esc(job.title)} · ${esc(job.location)} ↗</a>`).join('')}</div><p>${esc(company.note)}</p><button class="button" type="button" data-discovery-add="${index}" ${company.enabled ? 'disabled' : ''}>${company.enabled ? 'Já está no seu radar' : company.registered_id ? 'Ativar no meu radar' : 'Cadastrar no meu radar'}</button></article>`).join('') : '<p>Nenhuma nova empresa com vagas verificáveis foi encontrada para esses filtros. Tente ampliar os cargos ou locais.</p>';
+    $('#discovery-references').innerHTML = (result.research_sources || []).map((item) => `<p><a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.title)} ↗</a></p>`).join('');
+    $('#discovery-grounding').innerHTML = result.search_suggestions ? `<iframe title="Sugestões da pesquisa Google" sandbox="allow-popups allow-popups-to-escape-sandbox" src="/api/search/${encodeURIComponent(result.id)}/grounding"></iframe>` : '';
+  } finally { button.disabled = false; }
+}));
+$('#discovery-results').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-discovery-add]');
+  if (!button) return;
+  guarded(async () => {
+    const company = state.discovery[Number(button.dataset.discoveryAdd)];
+    button.disabled = true;
+    try {
+      if (company.registered_id) await api(`/api/companies/${company.registered_id}`, {method:'PATCH',body:JSON.stringify({enabled:true})});
+      else await api('/api/companies', {method:'POST',body:JSON.stringify({name:company.name,url:company.url})});
+      await refreshConfig(); button.textContent = 'Já está no seu radar'; toast(`${company.name} cadastrada no seu radar.`);
+    } catch (error) { button.disabled = false; throw error; }
+  });
 });

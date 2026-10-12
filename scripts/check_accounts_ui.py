@@ -1,0 +1,102 @@
+"""QA com duas contas fictícias; execute apenas numa instância temporária vazia.
+
+python scripts/check_accounts_ui.py --url http://127.0.0.1:5010
+Não envia alertas nem altera credenciais de provedores.
+"""
+import argparse
+import json
+import secrets
+from pathlib import Path
+from playwright.sync_api import sync_playwright, expect
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--url', default='http://127.0.0.1:5010')
+args = parser.parse_args()
+if not args.url.startswith('http://127.0.0.1:') or args.url.rstrip('/') == 'http://127.0.0.1:5000':
+    raise SystemExit('Use uma instância temporária local, em outra porta.')
+out = Path('logs/qa')
+out.mkdir(parents=True, exist_ok=True)
+password = secrets.token_urlsafe(24)
+suffix = secrets.token_hex(4)
+
+with sync_playwright() as runtime:
+    browser = runtime.chromium.launch(channel='msedge', headless=True)
+    owner_context = browser.new_context(viewport={'width': 1440, 'height': 1000})
+    owner = owner_context.new_page()
+    errors = []
+    owner.on('pageerror', lambda error: errors.append(str(error)))
+    owner.goto(args.url, wait_until='networkidle')
+    expect(owner.locator('#auth-title')).to_contain_text('primeira conta')
+    owner.screenshot(path=str(out / 'account-login-desktop.png'))
+    owner.set_viewport_size({'width': 390, 'height': 844})
+    owner.screenshot(path=str(out / 'account-login-mobile.png'), full_page=True)
+    owner.set_viewport_size({'width': 1440, 'height': 1000})
+    def register(page, email, name):
+        page.locator('#auth-name').fill(name)
+        page.locator('#auth-email').fill(email)
+        page.locator('#auth-password').fill(password)
+        page.locator('#auth-confirm').fill(password)
+        page.locator('#auth-submit').click()
+        expect(page.locator('#search-form')).to_be_visible(timeout=20000)
+    register(owner, f'qa-owner-{suffix}@example.org', 'QA owner')
+    expect(owner.locator('#company-count')).to_have_text('5')
+    owner.locator('a[data-view=companies]').click()
+    expect(owner.locator('#companies-list .company-card')).to_have_count(5)
+    owner.screenshot(path=str(out / 'account-companies.png'), full_page=True)
+    owner.locator('a[data-view=explore]').click()
+    owner.locator('#keywords').fill('product engineer;manufacturing engineer;mechanical design engineer')
+    owner.locator('#multilingual').uncheck()
+    owner.locator('#search-button').click()
+    expect(owner.locator('#search-button')).to_be_enabled(timeout=240000)
+    expect(owner.locator('#source-reports')).to_contain_text('Continental')
+    expect(owner.locator('#source-reports')).to_contain_text('Sika')
+    owner.locator('[data-salary-view=review]').click()
+    expect(owner.locator('#jobs-list .job-card').first).to_be_visible()
+    review_count = owner.locator('#jobs-list .job-card').count()
+    owner.locator('#jobs-list [data-job-save]').first.click()
+    expect(owner.locator('#favorite-count')).to_have_text('1')
+    owner.screenshot(path=str(out / 'account-live-results.png'), full_page=True)
+    owner.locator('#profile').select_option('custom')
+    owner.locator('#keywords').fill('enfermeiro;nurse')
+    owner.locator('#salary-min').fill('3500')
+    owner.locator('a[data-view=profile]').click()
+    owner.locator('#save-preferences').click()
+    expect(owner.locator('#preferences-summary')).to_contain_text('enfermeiro')
+    owner.locator('#profile-email-to').fill('qa-owner-alerts@example.org')
+    owner.locator('#profile-chat').fill('123456')
+    owner.locator('#profile-form button').click()
+    expect(owner.locator('#toast')).to_contain_text('atualizados')
+    owner.reload(wait_until='networkidle')
+    expect(owner.locator('#keywords')).to_have_value('enfermeiro;nurse')
+    expect(owner.locator('#salary-min')).to_have_value('3500')
+    owner.screenshot(path=str(out / 'account-profile.png'), full_page=True)
+    member_context = browser.new_context(viewport={'width': 390, 'height': 844})
+    member = member_context.new_page()
+    member.on('pageerror', lambda error: errors.append(str(error)))
+    member.goto(args.url, wait_until='networkidle')
+    member.locator('#auth-switch').click()
+    register(member, f'qa-member-{suffix}@example.org', 'QA member')
+    expect(member.locator('#favorite-count')).to_have_text('0')
+    expect(member.locator('#salary-min')).to_have_value('7000')
+    member.locator('a[data-view=history]').click()
+    expect(member.locator('#history-list')).to_contain_text('aparecerão aqui')
+    member.locator('a[data-view=profile]').click()
+    expect(member.locator('#profile-email-to')).to_have_value('')
+    expect(member.locator('#profile-chat')).to_have_value('')
+    member.screenshot(path=str(out / 'account-profile-mobile.png'), full_page=True)
+    assert member.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    member.locator('a[data-view=integrations]').click()
+    expect(member.locator('#google-form')).to_be_hidden()
+    expect(member.locator('#gemini-form')).to_be_hidden()
+    member.locator('#logout').click()
+    expect(member.locator('#auth-form')).to_be_visible()
+    member.locator('#auth-email').fill(f'qa-member-{suffix}@example.org')
+    member.locator('#auth-password').fill(password)
+    member.locator('#auth-submit').click()
+    expect(member.locator('#search-form')).to_be_visible()
+    assert not errors, errors
+    summary = {'accounts_tested': 2, 'companies': 5, 'live_review_jobs': review_count, 'browser_errors': errors,
+               'checks': ['registration', 'login/logout', 'company feeds', 'favorites isolation', 'history isolation', 'preferences persistence', 'custom career profile', 'personal notification destinations', 'admin-only keys', 'mobile layout']}
+    (out / 'accounts-summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
+    print(json.dumps(summary, ensure_ascii=True))
+    browser.close()
