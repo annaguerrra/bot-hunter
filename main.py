@@ -22,6 +22,7 @@ from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
+from jobhunter import matching, salary
 
 # Lê automaticamente as variáveis do arquivo .env, caso ele exista.
 # Variáveis do ambiente (como os Secrets do GitHub) também funcionam.
@@ -53,7 +54,7 @@ def get_settings():
     """Agrupa os filtros configurados no .env (não há necessidade de editar o Python)."""
     # CARGOS: cada palavra-chave gera uma consulta para cada cidade.
     keywords = split_terms(os.getenv(
-        "JOB_KEYWORDS", "engenheiro de produção;coordenador de produção"
+        "JOB_KEYWORDS", "engenheiro de produto;engenheiro de produção"
     ))
 
     # CIDADES: use JOB_LOCATIONS para várias, ou JOB_LOCATION para apenas uma.
@@ -88,6 +89,15 @@ def get_settings():
         raise ValueError("JOB_RADIUS deve ser 0, 4, 8, 16, 26, 40 ou 80 (km).")
     if max_queries < 1:
         raise ValueError("MAX_QUERIES_PER_RUN deve ser maior que zero.")
+    profile = os.getenv("JOB_PROFILE", "both").strip()
+    if profile not in {"product", "production", "both", "custom"}:
+        raise ValueError("JOB_PROFILE deve ser product, production, both ou custom.")
+    try:
+        salary_min = float(os.getenv("MIN_SALARY_BRL", "7000"))
+    except ValueError:
+        raise ValueError("MIN_SALARY_BRL precisa ser um número.") from None
+    if not 7000 <= salary_min <= 1000000:
+        raise ValueError("MIN_SALARY_BRL deve ser pelo menos 7000 por mês.")
 
     return {
         "keywords": keywords,
@@ -98,6 +108,7 @@ def get_settings():
         "max_jobs": max_jobs,
         "max_queries": max_queries,
         "radius": radius,
+        "profile": profile, "salary_min": salary_min,
     }
 
 
@@ -108,14 +119,23 @@ def search_count(settings):
 
 def show_plan(settings):
     """Exibe quantas consultas serão feitas SEM acessar nenhuma API."""
+    settings = {**settings, "keywords": effective_keywords(settings)}
     count = search_count(settings)
     print("Cargos:", ", ".join(settings["keywords"]))
     print("Cidades:", ", ".join(settings["locations"]))
     print("Raio:", settings["radius"], "km")
+    print(f"Perfil: {settings['profile']} · mínimo mensal: R$ {settings['salary_min']:,.0f}")
     print(f"Consultas previstas por execução: {count} (limite configurado: {settings['max_queries']})")
     if count > settings["max_queries"]:
         print("ATENÇÃO: aumente MAX_QUERIES_PER_RUN ou reduza cargos/cidades.")
     print("Este comando não consulta a Jooble e não consome requisições.")
+
+
+def effective_keywords(settings):
+    if settings["profile"] == "custom" or search_count(settings) > settings["max_queries"]:
+        return settings["keywords"]
+    return matching.expand_queries(settings["keywords"], settings["profile"], "BR",
+                                   limit=max(1, settings["max_queries"] // len(settings["locations"])))
 
 
 # ========== HISTÓRICO E FILTROS ==========
@@ -397,6 +417,11 @@ def main(preview=False):
             f"{settings['max_queries']}. Execute --plan para conferir."
         )
 
+    # Expande os perfis com sinônimos locais sem ultrapassar a cota configurada.
+    if settings["profile"] != "custom":
+        settings["keywords"] = effective_keywords(settings)
+        count = search_count(settings)
+
     api_key = required_env("JOOBLE_API_KEY")
     channels = notification_settings()
 
@@ -415,6 +440,8 @@ def main(preview=False):
     history = load_history()
     candidates = {}  # Mesmo ID em duas buscas? Entra só uma vez.
     errors = 0
+    review_candidates = {}
+    below_count = 0
 
     for location in settings["locations"]:
         for keyword in settings["keywords"]:
@@ -433,7 +460,18 @@ def main(preview=False):
                             settings["excluded_companies"],
                         )
                     ):
-                        candidates[key] = job
+                        assessment = matching.assess(job, settings["profile"], settings["keywords"], True, settings["excluded_titles"])
+                        if not assessment["matched"]:
+                            continue
+                        job = {**job, "country": job.get("country") or "BR", "match": assessment}
+                        check = salary.evaluate(job, settings["salary_min"])
+                        job["salary_check"] = check
+                        if check["status"] == "eligible":
+                            candidates[key] = job
+                        elif check["status"] == "review":
+                            review_candidates[key] = job
+                        else:
+                            below_count += 1
             except (requests.RequestException, ValueError) as exc:
                 # Erros de HTTP podem conter a chave na URL, então não mostramos o texto.
                 errors += 1
@@ -441,6 +479,17 @@ def main(preview=False):
 
     if errors == count:
         raise RuntimeError("Todas as buscas falharam. Confira a chave, a rede e a API.")
+    print(f"Piso: R$ {settings['salary_min']:,.0f}/mês. {len(candidates)} vagas com salário compatível; "
+          f"{len(review_candidates)} para análise; {below_count} resultados abaixo do piso.")
+    if preview:
+        for job in review_candidates.values():
+            print(f"PARA ANÁLISE (sem alerta): {job['title']} | {job.get('salary') or 'salário não informado'} | {job.get('link', '')}")
+    else:
+        review_path = HISTORY_FILE.parent / "salary_review.json"
+        review_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = review_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(list(review_candidates.values()), ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary.replace(review_path)
 
     # Cada canal tem SEU histórico: se o e-mail falhar, na próxima execução
     # apenas ele tentará novamente, sem repetir o Telegram que já funcionou.
@@ -471,7 +520,7 @@ def main(preview=False):
             try:
                 token, chat_id = telegram_credentials
                 for ids, parts in telegram_batches(selected):
-                    message = "<b>Novas vagas — Engenharia de Produção</b>\n\n" + "\n\n".join(parts)
+                    message = "<b>Novas vagas — Engenharia de Produto e Produção</b>\n\n" + "\n\n".join(parts)
                     send_telegram(token, chat_id, message)
                     history["telegram"].update(ids)
                     save_history(history)

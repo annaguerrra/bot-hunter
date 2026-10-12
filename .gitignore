@@ -3,3 +3,8 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+data/*.db
+data/*.db-*
+data/*.sqlite*
+logs/
+data/salary_review.json

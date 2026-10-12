@@ -18,6 +18,7 @@ JOB = {
     "location": "Curitiba",
     "link": "https://example.com/111",
     "updated": "2026-10-09T10:00:00",
+    "salary": "R$ 8.000 mensal",
 }
 
 ENV = {

@@ -44,7 +44,9 @@ jobs:
           SMTP_PORT: ${{ vars.SMTP_PORT || '465' }}
           JOB_LOCATION: ${{ vars.JOB_LOCATION }}
           JOB_LOCATIONS: ${{ vars.JOB_LOCATIONS }}
-          JOB_KEYWORDS: ${{ vars.JOB_KEYWORDS }}
+          JOB_KEYWORDS: ${{ vars.JOB_KEYWORDS || 'engenheiro de produto;engenheiro de produção' }}
+          JOB_PROFILE: ${{ vars.JOB_PROFILE || 'both' }}
+          MIN_SALARY_BRL: ${{ vars.MIN_SALARY_BRL || '7000' }}
           JOB_RADIUS: ${{ vars.JOB_RADIUS || '80' }}
           EXCLUDED_TITLE_TERMS: ${{ vars.EXCLUDED_TITLE_TERMS || 'estágio;estagiário;aprendiz' }}
           REQUIRED_TITLE_TERMS: ${{ vars.REQUIRED_TITLE_TERMS }}
