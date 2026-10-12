@@ -9,6 +9,7 @@
   <link rel="icon" href="/assets/bot-profile.png">
   <link rel="stylesheet" href="/static/app.css">
   <link rel="stylesheet" href="/static/account.css">
+  <script src="/static/onboarding.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body>
@@ -33,6 +34,7 @@
   <div class="workspace"><span class="workspace-avatar" data-user-initial>A</span><div><span id="workspace-name">Meu espaço</span><small>Radar pessoal de vagas</small></div><span class="workspace-dot"></span></div>
   <p class="nav-caption">SEU RADAR</p>
   <nav aria-label="Navegação principal">
+    <a href="#first-steps" class="nav-link" data-view="first-steps"><svg><use href="#i-check"/></svg>Primeiros passos</a>
     <a href="#explore" class="nav-link active" data-view="explore"><svg><use href="#i-globe"/></svg>Explorar vagas<span class="nav-arrow">↗</span></a>
     <a href="#companies" class="nav-link" data-view="companies"><svg><use href="#i-building"/></svg>Empresas<span id="company-count" class="nav-count">0</span></a>
     <a href="#favorites" class="nav-link" data-view="favorites"><svg><use href="#i-heart"/></svg>Vagas salvas<span id="favorite-count" class="nav-count">0</span></a>
@@ -41,12 +43,13 @@
     <a href="#profile" class="nav-link" data-view="profile"><svg><use href="#i-briefcase"/></svg>Meu perfil</a>
   </nav>
   <div class="sidebar-note"><div class="orbit-mark">↗</div><strong>O mundo é seu próximo destino.</strong><p>Explore novas possibilidades, uma oportunidade de cada vez.</p><a href="#companies">Adicionar uma empresa <span>→</span></a></div>
-  <div class="sidebar-footer"><span class="live-dot"></span>Seu radar, no seu computador<small>Bot Hunter · versão global</small></div>
+  <div class="sidebar-footer"><span class="live-dot"></span>Seu radar de oportunidades<small>Bot Hunter · versão global</small></div>
 </aside>
 <main>
   <header class="topbar"><span><span class="breadcrumb">Meu espaço</span><span class="crumb-slash">/</span><span id="page-name">Explorar vagas</span></span><div class="topbar-right"><span class="user-avatar" data-user-initial>A</span><button id="logout" type="button" class="text-button">Sair</button></div></header>
 
   <section id="view-explore" class="view">
+    {% include 'usage_panel.html' %}
     <div class="hero">
       <div class="hero-copy"><span class="eyebrow"><span class="tiny-star">✧</span> SUA CARREIRA, SEM FRONTEIRAS</span><h1>Seu próximo passo pode estar<br>em <span>qualquer lugar.</span></h1><p>Vagas do mundo inteiro. Empresas que você acompanha.<br>Todas as possibilidades, em um só radar.</p></div>
       <div class="hero-art" aria-hidden="true"><svg viewBox="0 0 330 230"><defs><radialGradient id="sphere"><stop stop-color="#e4f0ed"/><stop offset="1" stop-color="#bcdcd1"/></radialGradient></defs><circle cx="170" cy="115" r="91" fill="url(#sphere)"/><g fill="none" stroke="#77ad98" stroke-width="1" opacity=".6"><circle cx="170" cy="115" r="91"/><ellipse cx="170" cy="115" rx="34" ry="91"/><ellipse cx="170" cy="115" rx="65" ry="91"/><ellipse cx="170" cy="115" rx="91" ry="34"/><ellipse cx="170" cy="115" rx="91" ry="65"/><path d="M79 115h182M170 24v182"/><ellipse cx="170" cy="115" rx="145" ry="37" transform="rotate(-26 170 115)" stroke-dasharray="4 6"/></g><circle cx="112" cy="71" r="6" fill="#197a5b"/><circle cx="226" cy="144" r="6" fill="#197a5b"/><circle cx="180" cy="199" r="4" fill="#197a5b"/></svg><div class="world-label"><span class="live-dot"></span>Um radar. O mundo inteiro.</div></div>
@@ -103,6 +106,9 @@
   <p id="gemini-billing-note" class="field-help hidden">A pesquisa Google dos modelos Gemini 3 requer acesso ao plano com faturamento. Se aparecer 429, confira <a href="https://aistudio.google.com/usage" target="_blank" rel="noopener noreferrer">os limites do projeto</a> e a <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer">tabela de disponibilidade</a>. A classificação das vagas pode funcionar mesmo quando a pesquisa estiver indisponível.</p>
   <section id="jooble-guide" class="surface hidden"><h2>Todas as chaves regionais da Jooble</h2><p>A Jooble divulga 66 mercados. A chave de cada país é solicitada no site correspondente; não existe uma chave mundial. Lista conferida em 12/10/2026.</p><ol><li>Clique em <strong>Solicitar chave</strong> para o país.</li><li>Preencha nome, cargo, e-mail e telefone com seus dados. Em Website, informe o endereço público real do projeto, como <a href="https://github.com/annaguerrra/bot-hunter" target="_blank" rel="noopener noreferrer">seu repositório</a>, se o formulário aceitar. Se exigir uma aplicação publicada, use a URL pública quando houver.</li><li>Aguarde a resposta da Jooble e copie a chave recebida.</li><li>Clique em <strong>Cadastrar</strong>, cole a chave no formulário acima e salve. Repita para os outros países.</li></ol><p>O plano gratuito informa 500 consultas por chave durante toda a sua validade. A aprovação e a disponibilidade da API podem variar por mercado. <a href="https://help.jooble.org/en/support/solutions/articles/60001448238-rest-api-documentation" target="_blank" rel="noopener noreferrer">Documentação oficial ↗</a></p><div id="jooble-checklist"></div></section>
   {% include 'account_panel.html' %}
+  {% include 'email_panel.html' %}
+  {% include 'usage_admin.html' %}
+  {% include 'first_steps.html' %}
   <footer class="main-footer">Feito para descobrir possibilidades.<span>bot hunter <span class="footer-star">✧</span></span></footer>
 </main>
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>

@@ -234,7 +234,7 @@ class WebTests(unittest.TestCase):
 
     def test_google_key_stays_local_and_is_never_echoed(self):
         key = "0123456789abcdef" * 4
-        with patch("web.set_key") as save, patch.dict("os.environ", {}, clear=True):
+        with patch("jobhunter.configuration.set_key") as save, patch.dict("os.environ", {}, clear=True):
             response = self.client.post("/api/integrations/google", json={"key": key}, headers=self.headers)
             self.assertEqual(response.status_code, 200)
             save.assert_called_once()
@@ -242,7 +242,7 @@ class WebTests(unittest.TestCase):
 
     def test_jooble_key_registration_keeps_country_separate(self):
         key = "regional-german-key-for-tests"
-        with patch("web.set_key") as save, patch.dict("os.environ", {}, clear=True):
+        with patch("jobhunter.configuration.set_key") as save, patch.dict("os.environ", {}, clear=True):
             response = self.client.post("/api/integrations/jooble", json={"country": "DE", "key": key}, headers=self.headers)
             self.assertEqual(response.status_code, 200)
             self.assertEqual(save.call_args.args[1], "JOOBLE_API_KEY_DE")
@@ -252,7 +252,7 @@ class WebTests(unittest.TestCase):
 
     def test_gemini_key_accepts_current_format_and_never_echoes_it(self):
         key = "AQ." + "fake_private_key_for_tests" * 2
-        with patch("web.set_key") as save, patch.dict("os.environ", {}, clear=True):
+        with patch("jobhunter.configuration.set_key") as save, patch.dict("os.environ", {}, clear=True):
             response = self.client.post("/api/integrations/gemini", json={"key": key}, headers=self.headers)
             self.assertEqual(response.status_code, 200)
             self.assertEqual(save.call_args.args[1], "GEMINI_API_KEY")

@@ -96,7 +96,7 @@ class AccountTests(unittest.TestCase):
 
     def test_member_cannot_change_shared_keys(self):
         member, headers, _ = self.member()
-        with patch('web.set_key') as save:
+        with patch('jobhunter.configuration.set_key') as save:
             for source in ('gemini', 'google', 'jooble'):
                 self.assertEqual(member.post('/api/integrations/' + source, json={'key': 'fake-but-long-enough'}, headers=headers).status_code, 403)
         save.assert_not_called()
@@ -215,12 +215,12 @@ class MigrationAndDiscoveryTests(unittest.TestCase):
             provider, tenant = providers.detect_provider(url)
             return {'name': name, 'url': url, 'provider': provider, 'identifier': tenant}
         invented = {'companies': [{'name': 'Invented', 'url': 'https://evil.example/jobs'}]}
-        with patch.dict(os.environ, {'GEMINI_API_KEY': 'fake'}), patch.object(gemini, 'generate', return_value=(invented, {})), patch.object(providers, 'discover_company', side_effect=identify) as fetch, patch.dict(providers.COMPANY_PROVIDERS, {'smartrecruiters': lambda c, f: ([job], [])}):
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'fake', 'GEMINI_ENABLED': 'true'}), patch.object(gemini, 'generate', return_value=(invented, {})), patch.object(providers, 'discover_company', side_effect=identify) as fetch, patch.dict(providers.COMPANY_PROVIDERS, {'smartrecruiters': lambda c, f: ([job], [])}):
             result = discovery.suggest_companies(filters, [])
         self.assertEqual(len(result['companies']), 5)
         self.assertTrue(all('Product Engineer' == c['evidence'][0]['title'] for c in result['companies']))
         self.assertNotIn('https://evil.example/jobs', [call.args[1] for call in fetch.call_args_list])
-        with patch.dict(os.environ, {'GEMINI_API_KEY': 'fake'}), patch.object(gemini, 'generate', side_effect=gemini.GeminiError('HTTP 429')), patch.object(providers, 'discover_company', side_effect=identify), patch.dict(providers.COMPANY_PROVIDERS, {'smartrecruiters': lambda c, f: ([job], [])}):
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'fake', 'GEMINI_ENABLED': 'true'}), patch.object(gemini, 'generate', side_effect=gemini.GeminiError('HTTP 429')), patch.object(providers, 'discover_company', side_effect=identify), patch.dict(providers.COMPANY_PROVIDERS, {'smartrecruiters': lambda c, f: ([job], [])}):
             result = discovery.suggest_companies({**filters, 'country': 'BR'}, [])
         self.assertEqual(result['companies'], [])
         self.assertIn('429', result['notes'][0])

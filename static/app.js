@@ -203,6 +203,8 @@ async function pollSearch(identifier, started = Date.now()) {
     showSearchResult(result);
     setSearching(false);
     await loadHistory();
+    await refreshUsage();
+    if (state.usage?.blocked || result.budget_limited) await showGuidance();
     toast(`${state.jobs.length} oportunidades encontradas. Seu radar foi atualizado.`);
   } catch (error) {
     setSearching(false);
@@ -277,17 +279,21 @@ async function restoreFilters(saved) {
 
 async function navigate() {
   let view = location.hash.slice(1) || "explore";
-  if (!["explore", "companies", "favorites", "history", "integrations", "profile"].includes(view)) view = "explore";
+  if (!["explore", "companies", "favorites", "history", "integrations", "profile", "first-steps"].includes(view)) view = "explore";
   $$(".view").forEach((section) => section.classList.toggle("hidden", section.id !== `view-${view}`));
   $("#jooble-settings").classList.toggle("hidden", view !== "integrations" || state.config.user.role !== 'admin');
   $("#gemini-settings").classList.toggle("hidden", view !== "integrations" || state.config.user.role !== 'admin');
+  $('#usage-admin').classList.toggle('hidden', view !== 'integrations' || state.config.user.role !== 'admin');
+  $('#email-settings').classList.toggle('hidden', view !== 'integrations' || state.config.user.role !== 'admin');
   $("#jooble-guide").classList.toggle("hidden", view !== "integrations");
   $("#gemini-billing-note").classList.toggle("hidden", view !== "integrations");
   $$(".nav-link").forEach((link) => link.classList.toggle("active", link.dataset.view === view));
-  $("#page-name").textContent = { explore: "Explorar vagas", companies: "Empresas", favorites: "Vagas salvas", history: "Histórico", integrations: "Integrações", profile: 'Meu perfil' }[view];
+  $("#page-name").textContent = { explore: "Explorar vagas", companies: "Empresas", favorites: "Vagas salvas", history: "Histórico", integrations: "Integrações", profile: 'Meu perfil', 'first-steps': 'Primeiros passos' }[view];
   if (view === "favorites") await loadFavorites();
   if (view === "history") await loadHistory();
   if (view === 'profile') await loadProfile();
+  if (view === 'first-steps') await loadOnboarding();
+  if (view === 'integrations' && state.config.user.role === 'admin') await loadEmailSettings();
 }
 
 async function guarded(action) {
@@ -450,7 +456,92 @@ guarded(async () => {
   if (state.config.preferences.keywords) await restoreFilters(state.config.preferences);
   updateGoogleLink();
   await loadFavorites();
+  await refreshUsage();
   await navigate();
+  await initOnboarding();
+});
+
+async function refreshUsage() {
+  state.usage = await api('/api/usage');
+  const usage = state.usage;
+  $('#usage-status').textContent = `${usage.used_today} consultas usadas hoje · ${usage.remaining_today} disponíveis agora · limite pessoal de ${usage.limits.user_daily}/dia.`;
+  $('#google-usage-status').textContent = `Google Empregos: ${usage.google.used_today}/${usage.google.daily_limit} hoje · ${usage.google.used_month}/${usage.google.monthly_limit} neste mês · ${usage.google.remaining_today} disponíveis hoje.`;
+  $('#usage-reset').textContent = 'O limite diário renova à meia-noite de São Paulo. Respostas iguais são reaproveitadas por 24 horas. As 500 consultas por chave não renovam diariamente.';
+  $('#usage-summary').classList.toggle('budget-exhausted', usage.blocked);
+  if (usage.markets) {
+    const selected = $('#usage-user').value;
+    $('#usage-user').innerHTML = '<option value="">Padrão para novas contas</option>' + usage.users.map((user) => `<option value="${user.id}">${esc(user.name)}</option>`).join('');
+    $('#usage-user').value = selected;
+    updateUsageUserLimit();
+    $('#usage-global-limit').value = usage.limits.global_daily;
+    $('#usage-key-limit').value = usage.limits.key_daily;
+    $('#google-daily-limit').value = usage.google.daily_limit;
+    $('#google-monthly-limit').value = usage.google.monthly_limit;
+    $('#usage-account-note').textContent = `${usage.global_used_today} consultas compartilhadas usadas hoje; ${usage.global_remaining_today} restantes. O saldo abaixo inclui o consumo de todas as pessoas para cada chave.`;
+    $('#usage-key-balances').innerHTML = usage.markets.map((market) => `<form class="market-row" data-usage-country="${esc(market.country)}"><span>${esc(countryName(market.country))}<small>${market.used_tracked} contadas · ${market.today_remaining} disponíveis hoje · ${market.calibrated ? 'saldo ajustado' : 'saldo estimado'}</small></span><label>Saldo total confirmado<input type="number" name="remaining" min="0" max="500" value="${market.remaining_estimate}" required></label><button class="button" type="submit">Ajustar saldo</button></form>`).join('');
+  }
+}
+
+async function showGuidance() {
+  const result = await api('/api/guidance', {method: 'POST', body: JSON.stringify(filters())});
+  $('#guidance-links').innerHTML = result.links.map((link) => `<a class="button" href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.name)} ↗</a>`).join('');
+  $('#guidance-tips').innerHTML = result.tips.map((tip) => `<li>${esc(tip)}</li>`).join('');
+  $('#guidance-panel').classList.remove('hidden');
+}
+
+function updateUsageUserLimit() {
+  const selected = Number($('#usage-user').value);
+  $('#usage-user-limit').value = state.usage.users.find((user) => user.id === selected)?.daily_limit || state.usage.limits.default_user_daily;
+}
+$('#usage-user').addEventListener('change', updateUsageUserLimit);
+$('#google-usage-form').addEventListener('submit', (event) => {
+  event.preventDefault(); guarded(async () => {
+    const body = {action:'google', daily:Number($('#google-daily-limit').value), monthly:Number($('#google-monthly-limit').value)};
+    if ($('#google-prior-usage').value !== '') body.prior = Number($('#google-prior-usage').value);
+    await api('/api/integrations/usage', {method:'POST', body:JSON.stringify(body)});
+    $('#google-prior-usage').value = ''; await refreshUsage(); toast('Limites Google salvos; contagens deste mês preservadas.');
+  });
+});
+
+$('#guidance-button').addEventListener('click', () => guarded(showGuidance));
+async function loadEmailSettings() {
+  const result = await api('/api/integrations/email');
+  $('#email-provider').value = result.provider;
+  $('#email-sender').value = result.sender;
+  $('#email-transport-status').textContent = result.queued
+    ? 'Gmail SMTP é enviado pela fila no Neon e pelo GitHub Actions. Confira as credenciais, ative a automação e cadastre seu destinatário.'
+    : result.smtp_configured ? 'Credencial de envio salva. Confira seu destinatário em Meu perfil.' : 'Configure um serviço para começar a enviar e-mails.';
+}
+$('#email-settings-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  guarded(async () => {
+    await api('/api/integrations/email', {method: 'POST', body: JSON.stringify({provider: $('#email-provider').value,
+      sender: $('#email-sender').value, password: $('#email-credential').value})});
+    $('#email-credential').value = '';
+    await refreshConfig();
+    await loadEmailSettings();
+    toast('Serviço de e-mail salvo. Escolha seu destinatário em Meu perfil.');
+  });
+});
+$('#usage-limits-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  guarded(async () => {
+    await api('/api/integrations/usage', {method: 'POST', body: JSON.stringify({user_id: $('#usage-user').value ? Number($('#usage-user').value) : null,
+      user_daily: Number($('#usage-user-limit').value), global_daily: Number($('#usage-global-limit').value), key_daily: Number($('#usage-key-limit').value)})});
+    await refreshUsage();
+    toast('Limites de consultas salvos. Os contadores de consumo foram preservados.');
+  });
+});
+$('#usage-key-balances').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const form = event.target.closest('[data-usage-country]');
+  if (!form) return;
+  guarded(async () => {
+    await api('/api/integrations/usage', {method: 'POST', body: JSON.stringify({action: 'balance', country: form.dataset.usageCountry,
+      remaining: Number(form.elements.remaining.value)})});
+    await refreshUsage();
+    toast('Saldo confirmado atualizado.');
+  });
 });
 function updateSalaryFloor() {
   const minimum = $('#profile').value === 'custom' ? 0 : 7000;
@@ -466,9 +557,17 @@ async function loadProfile() {
   $('#profile-email').textContent = result.user.email + (result.user.role === 'admin' ? ' · Administração' : ' · Conta pessoal');
   $('#profile-email-to').value = result.contacts.email_to || '';
   $('#profile-chat').value = result.contacts.telegram_chat_id || '';
+  const queue = await api('/api/email-queue');
+  const labels = {queued:'Na fila', sending:'Enviando', sent:'Enviado', error:'Falhou; confira o serviço', uncertain:'Envio incerto; confira sua caixa de e-mail'};
+  $('#email-queue-status').innerHTML = queue.batches.length ? queue.batches.map((batch) => `<p>${esc(labels[batch.status] || batch.status)} · ${batch.attempts} tentativa(s) ${['error','uncertain'].includes(batch.status) && batch.attempts < 3 ? `<button class="button" type="button" data-email-retry="${esc(batch.id)}">Confirmar nova tentativa</button>` : ''}</p>`).join('') : '<p>Nenhum e-mail na fila.</p>';
   const prefs = result.preferences;
   $('#preferences-summary').textContent = prefs.keywords ? `${prefs.keywords.join(' / ')} · ${prefs.country ? countryName(prefs.country) : regionName(prefs.region)} · ${money(prefs.salary_min)} por mês` : 'Você ainda não salvou um padrão. Os filtros de engenharia estão disponíveis para começar.';
 }
+$('#email-queue-status').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-email-retry]');
+  if (!button) return;
+  guarded(async () => { await api(`/api/email-queue/${encodeURIComponent(button.dataset.emailRetry)}/retry`, {method:'POST',body:'{}'}); await loadProfile(); toast('Nova tentativa registrada na fila.'); });
+});
 $('#save-preferences').addEventListener('click', () => guarded(async () => {
   await api('/api/preferences', {method:'POST',body:JSON.stringify(filters())});
   await refreshConfig();

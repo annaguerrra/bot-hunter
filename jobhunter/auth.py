@@ -23,21 +23,29 @@ def contacts_for(user):
 
 def configure_auth(app, store):
     secret_path = store.path.parent / 'session-secret.key'
-    if not secret_path.exists():
+    if store.is_postgres:
+        store.set_setting('SESSION_SIGNING_KEY', os.getenv('HUNTER_SESSION_SECRET') or secrets.token_hex(32), only_if_missing=True)
+        secret = store.settings()['SESSION_SIGNING_KEY']
+    elif not secret_path.exists():
         try:
             with secret_path.open('x', encoding='ascii') as file:
                 file.write(secrets.token_hex(32))
         except FileExistsError:
             pass
-    app.config.update(SECRET_KEY=secret_path.read_text(encoding='ascii').strip(),
+    if not store.is_postgres:
+        secret = secret_path.read_text(encoding='ascii').strip()
+    trusted_hosts = os.getenv('HUNTER_TRUSTED_HOSTS', '127.0.0.1,localhost,::1').split(',')
+    app.config.update(SECRET_KEY=secret,
                       SESSION_COOKIE_NAME='hunter_session', SESSION_COOKIE_HTTPONLY=True,
                       SESSION_COOKIE_SAMESITE='Lax', SESSION_COOKIE_SECURE=os.getenv('HUNTER_HTTPS', '').lower() == 'true',
                       PERMANENT_SESSION_LIFETIME=timedelta(days=7),
-                      TRUSTED_HOSTS=os.getenv('HUNTER_TRUSTED_HOSTS', '127.0.0.1,localhost,::1').split(','))
+                      TRUSTED_HOSTS=trusted_hosts)
     dummy = generate_password_hash(secrets.token_urlsafe(32), method='scrypt')
 
     @app.before_request
     def require_account():
+        if request.path == '/health':
+            return
         g.user = store.session_user(session.get('token'))
         session.setdefault('csrf', secrets.token_urlsafe(32))
         if request.path.startswith('/api/') and not request.path.startswith('/api/auth/'):
