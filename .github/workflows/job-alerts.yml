@@ -1,0 +1,69 @@
+name: Enviar vagas novas
+
+# EDITE AQUI se quiser mudar a frequência automática de envio.
+# Atualmente: 9h17, de segunda a sexta, no horário de São Paulo.
+on:
+  workflow_dispatch: # Também permite executar manualmente na aba Actions.
+  schedule:
+    - cron: '17 9 * * 1-5'
+      timezone: 'America/Sao_Paulo'
+
+permissions:
+  contents: write # Necessário para versionar o histórico de vagas enviadas.
+
+# Evita duas execuções simultâneas disputando o mesmo histórico.
+concurrency:
+  group: job-alerts
+  cancel-in-progress: false
+
+jobs:
+  send-jobs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Buscar vagas e enviar por Telegram e e-mail
+        # Secrets = dados privados; vars = opções editáveis do robô.
+        # Configure ambos em Settings > Secrets and variables > Actions.
+        env:
+          JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SEND_TELEGRAM: ${{ vars.SEND_TELEGRAM || 'true' }}
+          SEND_EMAIL: ${{ vars.SEND_EMAIL || 'true' }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          SMTP_HOST: ${{ vars.SMTP_HOST || 'smtp.gmail.com' }}
+          SMTP_PORT: ${{ vars.SMTP_PORT || '465' }}
+          JOB_LOCATION: ${{ vars.JOB_LOCATION }}
+          JOB_LOCATIONS: ${{ vars.JOB_LOCATIONS }}
+          JOB_KEYWORDS: ${{ vars.JOB_KEYWORDS }}
+          JOB_RADIUS: ${{ vars.JOB_RADIUS || '80' }}
+          EXCLUDED_TITLE_TERMS: ${{ vars.EXCLUDED_TITLE_TERMS || 'estágio;estagiário;aprendiz' }}
+          REQUIRED_TITLE_TERMS: ${{ vars.REQUIRED_TITLE_TERMS }}
+          EXCLUDED_COMPANIES: ${{ vars.EXCLUDED_COMPANIES }}
+          MAX_JOBS: ${{ vars.MAX_JOBS || '8' }}
+          MAX_QUERIES_PER_RUN: ${{ vars.MAX_QUERIES_PER_RUN || '4' }}
+        run: python main.py
+
+      - name: Salvar histórico de vagas no repositório
+        # Executa mesmo se um canal falhar: o canal que funcionou não será repetido.
+        if: always()
+        # Runner do GitHub é descartável. Salvamos o JSON em um commit.
+        # Para escalar de verdade, depois podemos usar um banco de dados.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/sent_jobs.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update sent job IDs"
+            git pull --rebase origin "${{ github.ref_name }}"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
