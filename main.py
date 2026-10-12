@@ -15,6 +15,7 @@ import json
 import os
 import re
 import smtplib
+import time
 import ssl
 from email.message import EmailMessage
 import unicodedata
@@ -23,6 +24,7 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 from jobhunter import matching, salary
+from jobhunter.delivery import TelegramPacer
 
 # Lê automaticamente as variáveis do arquivo .env, caso ele exista.
 # Variáveis do ambiente (como os Secrets do GitHub) também funcionam.
@@ -74,7 +76,7 @@ def get_settings():
     # LIMITES: MAX_JOBS controla quantas vagas vão na mensagem.
     # MAX_QUERIES_PER_RUN impede consumir a cota da API sem perceber.
     try:
-        max_jobs = max(1, min(int(os.getenv("MAX_JOBS", "8")), 15))
+        max_jobs = max(1, min(int(os.getenv("MAX_JOBS", "100")), 100))
         max_queries = int(os.getenv("MAX_QUERIES_PER_RUN", "4"))
     except ValueError:
         raise ValueError("MAX_JOBS e MAX_QUERIES_PER_RUN precisam ser números inteiros.") from None
@@ -252,7 +254,7 @@ def search_jobs(api_key, keyword, location, radius):
             "location": location,
             "radius": radius,
             "page": 1,          # MVP: busca só a primeira página (economiza requisições).
-            "ResultOnPage": 20,
+            "ResultOnPage": 100,
         },
         timeout=25,  # Evita o programa ficar preso se a API não responder.
     )
@@ -281,23 +283,29 @@ def job_message(job):
 
 def send_telegram(token, chat_id, message):
     """Envia uma mensagem ao chat configurado no .env."""
-    try:
-        response = requests.post(
-            TELEGRAM_URL.format(token, "sendMessage"),
-            json={
-                "chat_id": chat_id,
-                "text": message,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-            },
-            timeout=25,
-        )
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        # O token do bot fica na URL; não exibimos a exceção original no terminal/log.
-        raise RuntimeError(f"Erro no envio para o Telegram ({type(exc).__name__}).") from None
-    if not response.json().get("ok"):
-        raise RuntimeError("Telegram recusou a mensagem. Confira token e chat ID.")
+    for attempt in range(3):
+        try:
+            response = requests.post(
+                TELEGRAM_URL.format(token, 'sendMessage'),
+                json={'chat_id': chat_id, 'text': message, 'parse_mode': 'HTML', 'disable_web_page_preview': True},
+                timeout=25,
+            )
+            if response.status_code == 429 and attempt < 2:
+                payload = response.json()
+                delay = int(payload.get('parameters', {}).get('retry_after', 1))
+                if not 1 <= delay <= 60:
+                    raise RuntimeError('Telegram pediu uma pausa maior. Tente o envio mais tarde; os sucessos foram preservados.')
+                time.sleep(delay)
+                continue
+            response.raise_for_status()
+            if not response.json().get('ok'):
+                raise RuntimeError('Telegram recusou a mensagem. Confira token e chat ID.')
+        except requests.RequestException as exc:
+            # O token fica na URL; não exibimos o erro externo.
+            raise RuntimeError(f'Erro no envio para o Telegram ({type(exc).__name__}).') from None
+        except (ValueError, TypeError, AttributeError):
+            raise RuntimeError('Telegram retornou uma resposta inválida.') from None
+        break
 
 
 def show_chat_ids():
@@ -519,9 +527,10 @@ def main(preview=False):
         if selected:
             try:
                 token, chat_id = telegram_credentials
+                pacer = TelegramPacer()
                 for ids, parts in telegram_batches(selected):
                     message = "<b>Novas vagas — Engenharia de Produto e Produção</b>\n\n" + "\n\n".join(parts)
-                    send_telegram(token, chat_id, message)
+                    pacer.send(send_telegram, token, chat_id, message)
                     history["telegram"].update(ids)
                     save_history(history)
                     print(f"Telegram: {len(ids)} vaga(s) enviadas.")

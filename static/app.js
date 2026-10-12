@@ -73,7 +73,7 @@ function filters() {
     company_ids: state.config.companies.filter((company) => company.enabled).map((company) => company.id),
     strict_title: $("#strict-title").checked, remote: $("#remote-only").checked,
     excluded: $("#excluded").value, pages: Number($("#pages").value), profile: $("#profile").value,
-    salary_min: Number($("#salary-min").value), multilingual: $("#multilingual").checked };
+    salary_min: Number($("#salary-min").value), multilingual: $("#multilingual").checked, jooble_count: Number($('#jooble-count').value) };
 }
 
 function updateGoogleLink() {
@@ -90,6 +90,7 @@ async function refreshConfig() {
   $('#google-form').closest('.google-connect').classList.toggle('hidden', state.config.user.role !== 'admin');
   $('#jooble-guide').dataset.admin = String(state.config.user.role === 'admin');
   $("#company-count").textContent = state.config.companies.length;
+  $('#notify-limit').textContent = `Até ${state.config.limits?.max_notify_jobs || 15} vagas por envio. O Telegram recebe mensagens divididas e espaçadas.`;
   ["google", "jooble", "gemini"].forEach((name) => $("#" + name + "-status").className = "source-dot " + (state.config.integrations[name] ? "ready" : "pending"));
   $("#google-setup-hint").classList.toggle("hidden", state.config.integrations.google);
   const previousJoobleCountry = $("#jooble-country").value || "BR";
@@ -262,6 +263,7 @@ async function restoreFilters(saved) {
   $("#salary-min").value = saved.salary_min ?? 7000;
   updateSalaryFloor();
   $("#multilingual").checked = saved.multilingual !== false;
+  $('#jooble-count').value = String(saved.jooble_count || 100);
   $$('input[name="source"]').forEach((input) => input.checked = saved.sources.includes(input.value));
   updateGoogleLink();
 }
@@ -317,7 +319,8 @@ $("#reset-filters").addEventListener("click", () => { $("#search-form").reset();
 $("#sort-results").addEventListener("change", renderJobs);
 $("#clear-selection").addEventListener("click", () => { state.selected.clear(); renderJobs(); });
 $("#notify-open").addEventListener("click", () => {
-  if (state.selected.size > 15) { toast("Selecione até 15 vagas por envio.", true); return; }
+  const maximum = state.config.limits?.max_notify_jobs || 15;
+  if (state.selected.size > maximum) { toast(`Selecione até ${maximum} vagas por envio.`, true); return; }
   $("#notify-dialog").showModal();
 });
 $("#notify-form").addEventListener("submit", (event) => {

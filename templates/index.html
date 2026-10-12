@@ -66,6 +66,7 @@
           <div class="filter-divider"></div><span class="field-label">Fontes da busca</span>
           <label class="checkbox-label"><input type="checkbox" name="source" value="companies" checked><span>Empresas acompanhadas</span><span class="mini-label">DIRETO</span></label>
           <label class="checkbox-label"><input type="checkbox" name="source" value="jooble"><span>Jooble</span><span id="jooble-status" class="source-dot"></span></label>
+          <label for="jooble-count">Vagas por consulta Jooble</label><select id="jooble-count"><option value="20">20 vagas</option><option value="50">50 vagas</option><option value="100" selected>100 vagas</option></select><p class="field-help">Coleta mais resultados na mesma consulta. O anúncio ainda precisa atender ao perfil e salário.</p>
           <label class="checkbox-label"><input type="checkbox" name="source" value="google"><span>Google Empregos</span><span id="google-status" class="source-dot"></span></label>
           <label class="checkbox-label"><input type="checkbox" name="source" value="gemini"><span>Gemini + Google Search</span><span id="gemini-status" class="source-dot"></span></label>
           <a href="#integrations" id="google-setup-hint" class="field-link">Conectar Google Empregos →</a>
@@ -106,6 +107,6 @@
 </main>
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 <dialog id="job-dialog"><div class="dialog-header"><span class="section-kicker">SUA PRÓXIMA OPORTUNIDADE</span><button type="button" class="dialog-close" data-close="job-dialog" aria-label="Fechar detalhes">×</button></div><div id="job-detail"></div></dialog>
-<dialog id="notify-dialog"><div class="dialog-header"><h2>Enviar oportunidades</h2><button type="button" class="dialog-close" data-close="notify-dialog" aria-label="Fechar envio">×</button></div><p>Envie as vagas selecionadas para seus canais configurados. Vagas já enviadas pelo mesmo canal serão ignoradas.</p><form id="notify-form"><label class="checkbox-label"><input id="notify-telegram" type="checkbox" name="channel" value="telegram">Telegram</label><label class="checkbox-label"><input id="notify-email" type="checkbox" name="channel" value="email">E-mail</label><button class="button primary" type="submit"><svg><use href="#i-send"/></svg>Enviar vagas selecionadas</button></form></dialog>
+<dialog id="notify-dialog"><div class="dialog-header"><h2>Enviar oportunidades</h2><button type="button" class="dialog-close" data-close="notify-dialog" aria-label="Fechar envio">×</button></div><p>Envie as vagas selecionadas para seus canais configurados. Vagas já enviadas pelo mesmo canal serão ignoradas.</p><p id="notify-limit" class="field-help"></p><form id="notify-form"><label class="checkbox-label"><input id="notify-telegram" type="checkbox" name="channel" value="telegram">Telegram</label><label class="checkbox-label"><input id="notify-email" type="checkbox" name="channel" value="email">E-mail</label><button class="button primary" type="submit"><svg><use href="#i-send"/></svg>Enviar vagas selecionadas</button></form></dialog>
 </body>
 </html>

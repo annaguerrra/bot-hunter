@@ -342,7 +342,7 @@ def jooble(filters):
             try:
                 response = requests.post("https://" + jooble_host(code) + "/api/" + keys[code],
                                          json={"keywords": keyword, "location": query_location(filters, code),
-                                               "page": 1, "ResultOnPage": 20, "radius": "0"}, timeout=25)
+                                               "page": 1, "ResultOnPage": filters.get('jooble_count', 100), "radius": "0"}, timeout=25)
                 response.raise_for_status()
                 results = response.json().get("jobs", [])
             except (requests.RequestException, ValueError) as exc:
@@ -358,6 +358,7 @@ def jooble(filters):
                     job.update(country=code, country_name=BY_CODE[code]["name"], country_basis="consulta")
                 jobs.append(job)
     notes = ["Jooble: primeira página por cargo e país; país inferido da consulta quando ausente no anúncio.",
+             f"Até {filters.get('jooble_count', 100)} anúncios por consulta; a API pode retornar menos. O limite de chamadas da busca permanece o mesmo.",
              "Consultados " + ", ".join(BY_CODE[code]["name"] for code in markets) + ". A Jooble exige uma chave própria para cada país."] + list(dict.fromkeys(errors))
     if len(markets) < len(codes):
         notes.append("Outros países dependem de suas chaves regionais e do limite de consultas.")

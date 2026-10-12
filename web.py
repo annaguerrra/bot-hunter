@@ -17,8 +17,10 @@ from jobhunter import geo, providers, salary, matching
 from jobhunter.storage import Store
 from jobhunter.jooble_markets import MARKETS, HOSTS
 from jobhunter.auth import configure_auth, contacts_for, public_user
+from jobhunter.delivery import TelegramPacer
 
 BASE = Path(__file__).resolve().parent
+MAX_NOTIFY_JOBS = 100
 
 
 def validate_filters(body, companies):
@@ -72,11 +74,14 @@ def validate_filters(body, companies):
     floor = 0 if profile == 'custom' else 7000
     if type(minimum) not in (int, float) or not floor <= minimum <= 1000000:
         raise ValueError(f'O salário mínimo deve ser de R$ {floor:,.0f} a R$ 1.000.000 por mês.')
+    jooble_count = body.get('jooble_count', 100)
+    if type(jooble_count) is not int or jooble_count not in {20, 50, 100}:
+        raise ValueError('Escolha 20, 50 ou 100 resultados por consulta Jooble.')
     return {"keywords": keywords, "region": region, "country": country, "state": state,
             "city": city.strip(), "sources": list(dict.fromkeys(sources)), "company_ids": company_ids,
             "strict_title": body.get("strict_title", True), "remote": body.get("remote", False),
             "pages": pages, "excluded": main.split_terms(excluded), "profile": profile,
-            "multilingual": body.get("multilingual", True), "salary_min": minimum}
+            "multilingual": body.get("multilingual", True), "salary_min": minimum, 'jooble_count': jooble_count}
 
 
 def create_app(db_path=None):
@@ -90,6 +95,7 @@ def create_app(db_path=None):
     app.extensions["executor"] = executor
     search_slots = threading.BoundedSemaphore(2)
     delivery_lock = threading.Lock()
+    telegram_pacer = TelegramPacer()
     configuration_lock = threading.Lock()
 
     @app.before_request
@@ -137,6 +143,7 @@ def create_app(db_path=None):
         return jsonify(regions=[{"code": code, "name": name} for code, name in geo.REGIONS.items()],
                        countries=geo.COUNTRIES, companies=store.companies(g.user['id']), user=public_user(g.user),
                        preferences=g.user['preferences'],
+                       limits={'max_notify_jobs': MAX_NOTIFY_JOBS},
                        jooble_countries=list(providers.jooble_keys()), jooble_markets=MARKETS,
                        integrations={"jooble": bool(providers.jooble_keys()), "google": configured("SERPAPI_API_KEY"), "gemini": configured("GEMINI_API_KEY"),
                                      "telegram": configured("TELEGRAM_BOT_TOKEN") and bool(contacts_for(g.user).get('telegram_chat_id')),
@@ -328,8 +335,8 @@ def create_app(db_path=None):
     def notify():
         body = request.get_json(silent=True) or {}
         ids, channels = body.get("ids", []), body.get("channels", [])
-        if not isinstance(ids, list) or not 1 <= len(ids) <= 15 or any(not isinstance(item, str) for item in ids):
-            raise ValueError("Selecione de 1 a 15 vagas para enviar.")
+        if not isinstance(ids, list) or not 1 <= len(ids) <= MAX_NOTIFY_JOBS or any(not isinstance(item, str) for item in ids):
+            raise ValueError(f'Selecione de 1 a {MAX_NOTIFY_JOBS} vagas para enviar.')
         if not isinstance(channels, list) or not channels or any(item not in {"telegram", "email"} for item in channels):
             raise ValueError("Selecione Telegram ou e-mail.")
         jobs = [find_job(identifier, body.get("search_id", "")) for identifier in dict.fromkeys(ids)]
@@ -356,7 +363,7 @@ def create_app(db_path=None):
                         if not chat_id:
                             raise ValueError('Cadastre seu chat Telegram em Meu perfil.')
                         for identifiers, parts in main.telegram_batches([(job["id"], job) for job in selected]):
-                            main.send_telegram(token, chat_id, "<b>Bot Hunter · oportunidades globais</b>\n\n" + "\n\n".join(parts))
+                            telegram_pacer.send(main.send_telegram, token, chat_id, '<b>Bot Hunter · oportunidades globais</b>\n\n' + '\n\n'.join(parts))
                             store.mark_delivered(identifiers, channel, g.user['id'])
                             sent += len(identifiers)
                     else:
