@@ -42,7 +42,6 @@ class JobHunterTests(unittest.TestCase):
         env.start()
         self.addCleanup(env.stop)
 
-    def setUp(self):
         self.budget_patch = patch.object(main, 'make_usage_budget', return_value=None)
         self.budget_patch.start()
         self.addCleanup(self.budget_patch.stop)
