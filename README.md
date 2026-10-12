@@ -16,7 +16,7 @@ Copy-Item .env.example .env
 
 Abra **http://127.0.0.1:5000**. O processo precisa continuar rodando enquanto você usa a interface. Para usar outra porta: `python web.py --port 5001`.
 
-O backend escuta apenas no computador local. A versão atual não é um serviço multiusuário hospedado. O frontend e as chaves de integrações são servidos pelo mesmo backend; as chaves não são devolvidas pela API.
+O backend escuta apenas no computador local e agora possui **cadastro e login com dados separados por usuário**. A primeira conta criada será administradora e receberá o histórico existente; suas chaves atuais continuam salvas. As demais contas têm preferências, favoritos, empresas, histórico e destinatários próprios. Consulte o [guia de contas e preparação para hospedagem](docs/accounts.md). As chaves de pesquisa compartilhadas só podem ser alteradas pela administração e não são devolvidas pela API.
 
 ### Busca internacional
 
@@ -30,7 +30,7 @@ O backend escuta apenas no computador local. A versão atual não é um serviço
 
 ### Páginas de empresas
 
-A Bosch vem cadastrada e usa a API pública do SmartRecruiters. Cadastre empresas na tela **Empresas** usando sua URL de carreiras. As plataformas são reconhecidas automaticamente:
+A Bosch, **Continental/ContiTech, BEUMER Group, Renesas Electronics e Sika** vêm cadastradas e usam fontes públicas SmartRecruiters. Vagas compatíveis foram verificadas nas quatro empresas adicionadas; consulte os [sites e exemplos verificados](docs/verified-companies.md). Em **Empresas → Descobrir empresas**, Gemini ajuda a encontrar páginas de carreira a partir de seus filtros; fontes citadas e anúncios compatíveis são conferidos antes de sugerir o cadastro. O catálogo público é usado quando a IA está indisponível. Você também pode cadastrar sua URL de carreiras manualmente. As plataformas são reconhecidas automaticamente:
 
 | Fonte | URL de exemplo | Como funciona |
 |---|---|---|
@@ -66,7 +66,9 @@ A aplicação envia cada chave somente ao endpoint regional correspondente. Sem 
 
 O coração salva uma oportunidade. O **Histórico** guarda resultados e filtros; **Ver resultados** retoma os dados já coletados e **Usar filtros** prepara uma nova busca. Os registros ficam no SQLite local `data/hunter.sqlite`, ignorado pelo Git.
 
-Selecione até 15 vagas, clique em **Enviar alertas** e escolha Telegram/e-mail. Buscas não enviam mensagens automaticamente. O histórico de envio da interface é separado por canal: se um canal falha, o que funcionou não repete as vagas. O histórico da interface é independente do JSON utilizado pelo bot CLI original.
+Selecione até **100 vagas**, clique em **Enviar alertas** e escolha Telegram/e-mail. Buscas não enviam mensagens automaticamente. O Telegram divide os resultados em mensagens menores que seu limite e espaça os envios: 1,1 segundo em chats pessoais e 3,1 segundos em grupos. Respostas 429 com `retry_after` de até 60 segundos recebem até duas novas tentativas; erros ambíguos de rede não são reenviados automaticamente. O histórico de envio da interface é separado por usuário e canal: se um canal falha, o que funcionou não repete as vagas. O histórico da interface é independente do JSON utilizado pelo bot CLI original. [Limites Telegram](https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this).
+
+Em **Explorar vagas → Vagas por consulta Jooble**, escolha 20, 50 ou **100** resultados (padrão). Isso altera `ResultOnPage`, mantendo o limite de chamadas por busca. A API pode devolver menos anúncios; filtros, duplicidade e remuneração reduzem a lista aprovada. A CLI também solicita até 100 resultados por chamada e aceita `MAX_JOBS` entre 1 e 100; valores já presentes no `.env` continuam sendo respeitados. Mais resultados aumentam o volume processado e o tempo de envio, sem transformar cada anúncio em uma consulta adicional. [Parâmetros Jooble](https://help.jooble.org/en/support/solutions/articles/60001448238-rest-api-documentation).
 
 ### Cobertura e limites
 
@@ -229,7 +231,7 @@ Tudo no `.env`:
 | `EXCLUDED_TITLE_TERMS` | Palavras que bloqueiam vagas | `estágio;estagiário;aprendiz` |
 | `REQUIRED_TITLE_TERMS` | Exige pelo menos um termo no título (opcional) | `engenheiro;coordenador` |
 | `EXCLUDED_COMPANIES` | Empresas que você não quer ver (opcional) | `Empresa A;Empresa B` |
-| `MAX_JOBS` | Vagas novas por canal por execução (1 a 15) | `8` |
+| `MAX_JOBS` | Vagas novas por canal por execução na CLI (1 a 100) | `100` |
 | `MAX_QUERIES_PER_RUN` | Limite de chamadas à Jooble por execução | `4` |
 
 **Consumo de API:** cada combinação **cargo × cidade** gera uma consulta à Jooble. Por exemplo, 2 cargos × 1 cidade = 2 requisições por execução. O `--plan` mostra a conta **sem chamar a API**.
