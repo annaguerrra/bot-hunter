@@ -111,8 +111,8 @@ def parse_salary(job):
     return {"amount": min(values), "currency": next(iter(currencies)), "period": period, "hours": job.get("hours_per_week")}
 
 
-def evaluate(job, minimum=7000, rate_fetch=exchange_rate):
-    result = {"status": "review", "minimum_brl": minimum, "reason": "Salário não informado ou sem moeda/período verificável"}
+def evaluate(job, minimum=7000, rate_fetch=exchange_rate, *, maximum=None):
+    result = {"status": "review", "minimum_brl": minimum, 'maximum_brl': maximum, "reason": "Salário não informado ou sem moeda/período verificável"}
     parsed = parse_salary(job)
     if not parsed:
         return result
@@ -141,10 +141,15 @@ def evaluate(job, minimum=7000, rate_fetch=exchange_rate):
         return {**result, "reason": "Conversão pendente: cotação indisponível ou desatualizada", "currency": currency}
     brl = monthly * rate
     status = "eligible" if brl >= minimum else "below"
-    return {"status": status, "minimum_brl": minimum, "monthly_brl": round(brl, 2), "monthly_original": round(monthly, 2),
+    # Comparamos o piso publicado: uma faixa maior pode conter valores da pretensão.
+    # Não liberamos alertas quando o piso está abaixo do mínimo, mesmo que o teto alcance a faixa.
+    if maximum is not None and brl > maximum:
+        status = 'above'
+    reasons = {'eligible': 'Piso publicado dentro da faixa escolhida', 'below': 'Piso publicado abaixo do mínimo', 'above': 'Piso publicado acima do máximo escolhido'}
+    return {"status": status, "minimum_brl": minimum, 'maximum_brl': maximum, "monthly_brl": round(brl, 2), "monthly_original": round(monthly, 2),
             "currency": currency, "rate": rate, "rate_date": rate_date, "original_period": period,
             "rate_source": "Frankfurter" if currency != "BRL" else "BRL",
-            "reason": "Piso publicado atende ao mínimo" if status == "eligible" else "Piso publicado abaixo do mínimo"}
+            "reason": reasons[status]}
 
 
 def schema_salary(item):

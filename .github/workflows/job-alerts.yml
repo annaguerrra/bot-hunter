@@ -63,6 +63,7 @@ jobs:
           JOB_KEYWORDS: ${{ vars.JOB_KEYWORDS || 'product engineer;production engineer;engenheiro de produto' }}
           JOB_PROFILE: ${{ vars.JOB_PROFILE || 'both' }}
           MIN_SALARY_BRL: ${{ vars.MIN_SALARY_BRL || '7000' }}
+          MAX_SALARY_BRL: ${{ vars.MAX_SALARY_BRL }}
           JOB_COUNTRY: ${{ vars.JOB_COUNTRY || 'BR' }}
           JOB_LOCATION: ${{ vars.JOB_LOCATION }}
           MAX_JOBS: ${{ vars.MAX_JOBS || '100' }}

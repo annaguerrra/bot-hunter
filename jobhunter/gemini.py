@@ -115,7 +115,7 @@ def search_jobs(filters):
     destination = BY_CODE.get(filters.get("country"), {}).get("english") or filters.get("region") or "worldwide"
     request = {"destination": destination, "state": filters.get("state"), "city": filters.get("city"),
                "profile": filters.get("profile", "both"), "terms": expand_queries(filters["keywords"], filters.get("profile", "both"), filters.get("country", "")),
-               "minimum_monthly_brl": filters.get("salary_min", 7000), "remote_only": filters.get("remote", False)}
+               "minimum_monthly_brl": filters.get("salary_min", 7000), 'maximum_monthly_brl': filters.get('salary_max'), "remote_only": filters.get("remote", False)}
     prompt = ("Pesquise agora com Google Search anúncios atuais de engenharia de produto físico e/ou produção "
               "conforme o perfil. Use inglês e idiomas locais, gênero, abreviações e sinônimos, incluindo product "
               "development, design, industrial e manufacturing quando compatíveis. Procure também páginas das empresas. "
@@ -176,7 +176,7 @@ def rank_jobs(jobs, profile, preferences=None):
               "description": job.get("description", "")[:1500], "area": job.get("match", {}).get("area"),
               "salary_status": job.get("salary_check", {}).get("status")} for job in jobs[:80]]
     emphasis = 'Avalie a correspondência aos cargos personalizados, sem exigir engenharia industrial. ' if profile == 'custom' else 'Avalie especialidade industrial, produto físico, desenvolvimento e manufatura. '
-    criteria = {key: (preferences or {}).get(key) for key in ('keywords', 'country', 'region', 'city', 'remote', 'salary_min')}
+    criteria = {key: (preferences or {}).get(key) for key in ('keywords', 'country', 'region', 'city', 'remote', 'salary_min', 'salary_max')}
     data, _ = generate("Compare a adequação das vagas ao perfil " + profile + '. ' + emphasis + 'Preferências: ' + json.dumps(criteria, ensure_ascii=False) + '. Evidências da descrição: '
                        "Não invente experiência da pessoa, "
                        "domínio de idiomas ou disponibilidade de visto. Destaque requisitos sem presumir que a pessoa não os atende. "

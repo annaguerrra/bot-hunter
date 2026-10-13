@@ -100,6 +100,12 @@ def get_settings():
         raise ValueError("MIN_SALARY_BRL precisa ser um número.") from None
     if not 7000 <= salary_min <= 1000000:
         raise ValueError("MIN_SALARY_BRL deve ser pelo menos 7000 por mês.")
+    try:
+        salary_max = float(os.environ['MAX_SALARY_BRL']) if os.getenv('MAX_SALARY_BRL', '').strip() else None
+    except ValueError:
+        raise ValueError('MAX_SALARY_BRL precisa ser um número ou ficar vazio.') from None
+    if salary_max is not None and not salary_min <= salary_max <= 1000000:
+        raise ValueError('MAX_SALARY_BRL precisa ser igual ou maior que o mínimo, até 1000000.')
 
     return {
         "keywords": keywords,
@@ -110,7 +116,7 @@ def get_settings():
         "max_jobs": max_jobs,
         "max_queries": max_queries,
         "radius": radius,
-        "profile": profile, "salary_min": salary_min,
+        "profile": profile, "salary_min": salary_min, 'salary_max': salary_max,
     }
 
 
@@ -507,7 +513,7 @@ def main(preview=False):
                         if not assessment["matched"]:
                             continue
                         job = {**job, "country": job.get("country") or "BR", "match": assessment}
-                        check = salary.evaluate(job, settings["salary_min"])
+                        check = salary.evaluate(job, settings["salary_min"], maximum=settings.get('salary_max'))
                         job["salary_check"] = check
                         if check["status"] == "eligible":
                             candidates[key] = job

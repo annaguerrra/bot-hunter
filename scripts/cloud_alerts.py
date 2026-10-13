@@ -39,6 +39,9 @@ def run(search=False):
                                           'country': os.getenv('JOB_COUNTRY', 'BR'), 'city': os.getenv('JOB_LOCATION', '')}
             # Preferências já validadas guardam termos como lista; o formulário recebe texto.
             form = dict(form)
+            # O teto de Variables só se aplica a contas sem um padrão pessoal salvo.
+            if not user['preferences']:
+                form['salary_max'] = float(os.environ['MAX_SALARY_BRL']) if os.getenv('MAX_SALARY_BRL', '').strip() else None
             # Preferências explícitas prevalecem; novas contas usam a seleção econômica.
             form.setdefault('auto_sources', os.getenv('AUTO_SOURCE_ROUTING', 'true').lower() == 'true')
             for field in ('keywords', 'excluded'):

@@ -669,6 +669,7 @@ def _run_search(filters, companies, usage=None, user_id=0):
                 found, notes = fetch_company_jobs(company, source_filters, usage) if company else fetch(source_filters)
             accepted, review_count, below_count = 0, 0, 0
             source_seen = set()
+            above_count = 0
             for job in found:
                 http.checkpoint()
                 if job["id"] in source_seen:
@@ -680,8 +681,11 @@ def _run_search(filters, companies, usage=None, user_id=0):
                 if not assessment["matched"]:
                     continue
                 job["match"] = assessment
-                job["salary_check"] = salary.evaluate(job, filters.get("salary_min", 7000))
+                job["salary_check"] = salary.evaluate(job, filters.get("salary_min", 7000), maximum=filters.get('salary_max'))
                 status = job["salary_check"]["status"]
+                if status == 'above':
+                    above_count += 1
+                    continue
                 if status == "below":
                     below_count += 1
                     continue
@@ -702,7 +706,7 @@ def _run_search(filters, companies, usage=None, user_id=0):
                     jobs[job["id"]] = job
             report.append({"name": name, "status": "limited" if source_filters.get('_budget_limited') and not found else "ok", "received": len(found), "matched": accepted,
                            "budget_limited": bool(source_filters.get('_budget_limited')),
-                           "review": review_count, "below_minimum": below_count, "notes": notes,
+                           "review": review_count, "below_minimum": below_count, 'above_maximum': above_count, "notes": notes,
                            "queries": source_filters["keywords"] if name != "Gemini / Google Search" else search_queries})
         except http.SearchDeadlineExceeded as exc:
             report.append({'name': name, 'status': 'limited', 'received': 0, 'matched': 0,

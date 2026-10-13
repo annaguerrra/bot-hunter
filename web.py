@@ -81,6 +81,9 @@ def validate_filters(body, companies):
     floor = 0 if profile == 'custom' else 7000
     if type(minimum) not in (int, float) or not floor <= minimum <= 1000000:
         raise ValueError(f'O salário mínimo deve ser de R$ {floor:,.0f} a R$ 1.000.000 por mês.')
+    maximum = body.get('salary_max')
+    if maximum is not None and (type(maximum) not in (int, float) or not minimum <= maximum <= 1000000):
+        raise ValueError('O salário máximo deve ser igual ou maior que o mínimo, até R$ 1.000.000, ou ficar vazio.')
     jooble_count = body.get('jooble_count', 100)
     if type(jooble_count) is not int or jooble_count not in {20, 50, 100}:
         raise ValueError('Escolha 20, 50 ou 100 resultados por consulta Jooble.')
@@ -88,7 +91,7 @@ def validate_filters(body, companies):
             "city": city.strip(), "sources": list(dict.fromkeys(sources)), "company_ids": company_ids,
             "strict_title": body.get("strict_title", True), "remote": body.get("remote", False),
             "pages": pages, "excluded": main.split_terms(excluded), "profile": profile,
-            "multilingual": body.get("multilingual", True), "salary_min": minimum, 'jooble_count': jooble_count,
+            "multilingual": body.get("multilingual", True), "salary_min": minimum, 'salary_max': maximum, 'jooble_count': jooble_count,
             'auto_sources': False if free else body.get('auto_sources', False), 'free_exploration': free}
 
 
@@ -522,8 +525,8 @@ def create_app(db_path=None):
         if any(not matching.assess(job, search_filters.get("profile", "both"), search_filters.get("keywords", []),
                                    search_filters.get("strict_title", True), search_filters.get("excluded", []))["matched"] for job in jobs):
             raise ValueError("Uma das vagas não atende ao perfil de engenharia selecionado. Atualize a busca antes de enviar.")
-        if any(salary.evaluate(job, minimum)["status"] != "eligible" for job in jobs):
-            raise ValueError("Alertas aceitam apenas vagas com salário publicado que atenda ao mínimo. Vagas para análise podem ser salvas.")
+        if any(salary.evaluate(job, minimum, maximum=search_filters.get('salary_max'))["status"] != "eligible" for job in jobs):
+            raise ValueError("Alertas aceitam apenas vagas com salário publicado dentro da faixa escolhida. Vagas para análise podem ser salvas.")
         reports = []
         with delivery_lock:
             for channel in dict.fromkeys(channels):
