@@ -413,10 +413,25 @@ def create_app(db_path=None):
     def favorites():
         return jsonify(jobs=store.favorites(g.user['id']))
 
+    @app.get('/api/jobs')
+    def found_jobs():
+        status = request.args.get('status', 'all')
+        try:
+            offset = int(request.args.get('offset', '0'))
+        except ValueError:
+            raise ValueError('Página de vagas inválida.') from None
+        if status not in {'all', 'eligible', 'review'} or not 0 <= offset <= 500000:
+            raise ValueError('Filtro ou página de vagas inválidos.')
+        return jsonify(**store.found_jobs(g.user['id'], status=status, offset=offset))
+
     def find_job(identifier, search_id):
+        if not isinstance(identifier, str) or not identifier or not isinstance(search_id, str):
+            return None
         search = store.search(search_id, g.user['id']) or {}
         jobs = search.get('jobs', []) + search.get('review_jobs', []) + store.favorites(g.user['id'])
-        return next((job for job in jobs if job["id"] == identifier), None)
+        found = next((job for job in jobs if job["id"] == identifier), None)
+        # Sem uma busca específica, a lista consolidada também permite salvar a vaga.
+        return found or (store.indexed_job(identifier, g.user['id']) if not search_id else None)
 
     @app.post("/api/favorites")
     def add_favorite():

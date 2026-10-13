@@ -61,6 +61,14 @@ def check(url):
                 assert cloud.delivered('qa-job', 'email', owner) and not cloud.delivered('qa-job', 'email', member)
                 cloud.mark_delivered(['qa-job'], 'email', owner)
                 assert len(cloud.recent_searches(owner)) == 3
+                # Contagens, prévias e catálogo usam a mesma sintaxe no PostgreSQL.
+                recent = cloud.recent_searches(owner)
+                assert sum(item['jobs_count'] for item in recent) == 2
+                assert any(item['preview_jobs'] for item in recent)
+                catalog = cloud.found_jobs(owner)
+                assert catalog['total'] == 1 and not cloud.found_jobs(member)['jobs']
+                assert cloud.indexed_job(second['id'], owner)
+                assert cloud.indexed_job(second['id'], member) is None
                 assert cloud.settings()['GEMINI_API_KEY'] == 'qa-private-test-key'
                 assert cloud.settings()['JOOBLE_API_KEY_BR'] == 'qa-key'
                 assert cloud.user(owner)['contacts']['email_to'] == 'owner@example.org'

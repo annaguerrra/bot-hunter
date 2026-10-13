@@ -150,8 +150,44 @@ class Store:
     def recent_searches(self, user_id=0):
         with self.connection() as db:
             kind = "result::jsonb ->> 'kind'" if self.is_postgres else "json_extract(result,'$.kind')"
-            rows = db.execute(f"SELECT id,filters,status,created_at FROM searches WHERE user_id=? AND {kind} IS NULL ORDER BY created_at DESC LIMIT 20", (user_id,)).fetchall()
-        return [{**dict(row), 'filters': json.loads(row['filters'])} for row in rows]
+            # O banco devolve somente contagens e três prévias, sem carregar históricos inteiros.
+            fields = []
+            for group in ('jobs', 'review_jobs'):
+                count = f"jsonb_array_length(COALESCE(result::jsonb -> '{group}','[]'::jsonb))" if self.is_postgres else f"COALESCE(json_array_length(result,'$.{group}'),0)"
+                fields.append(f'{count} AS {group}_count')
+                for index in range(3):
+                    item = f"(result::jsonb -> '{group}' -> {index})::text" if self.is_postgres else f"json_extract(result,'$.{group}[{index}]')"
+                    fields.append(f'{item} AS {group}_{index}')
+            rows = db.execute(f"SELECT id,filters,status,created_at,{','.join(fields)} FROM searches WHERE user_id=? AND {kind} IS NULL ORDER BY created_at DESC LIMIT 20", (user_id,)).fetchall()
+        result = []
+        for row in rows:
+            previews = [json.loads(row[f'{group}_{index}']) for group in ('jobs', 'review_jobs') for index in range(3) if row[f'{group}_{index}']][:3]
+            result.append({'id': row['id'], 'status': row['status'], 'created_at': row['created_at'], 'filters': json.loads(row['filters']),
+                           'jobs_count': row['jobs_count'], 'review_count': row['review_jobs_count'],
+                           'preview_jobs': [{key: job.get(key, '') for key in ('id', 'title', 'company', 'location', 'link', 'salary_check')} for job in previews]})
+        return result
+
+    def found_jobs(self, user_id, status='all', limit=40, offset=0):
+        # Consulta o índice privado já deduplicado, incluindo buscas anteriores às vinte recentes.
+        field = "payload::jsonb -> 'salary_check' ->> 'status'" if self.is_postgres else "json_extract(payload,'$.salary_check.status')"
+        verdict = f"COALESCE({field},'review')"
+        allowed = ('eligible', 'review') if status == 'all' else (status,)
+        placeholders = ','.join('?' for _ in allowed)
+        condition = f"user_id=? AND {verdict} IN ({placeholders})"
+        params = (user_id, *allowed)
+        with self.connection() as db:
+            counts = db.execute(f'SELECT {verdict} AS verdict,COUNT(*) AS n FROM job_index WHERE {condition} GROUP BY {verdict}', params).fetchall()
+            rows = db.execute(f'SELECT payload FROM job_index WHERE {condition} ORDER BY id LIMIT ? OFFSET ?', (*params, limit, offset)).fetchall()
+        return {'jobs': [json.loads(row['payload']) for row in rows], 'total': sum(row['n'] for row in counts),
+                'eligible': sum(row['n'] for row in counts if row['verdict'] == 'eligible'),
+                'review': sum(row['n'] for row in counts if row['verdict'] == 'review'), 'limit': limit, 'offset': offset}
+
+    def indexed_job(self, identifier, user_id):
+        from .job_identity import resolve
+        with self.connection() as db:
+            canonical = resolve(db, identifier, user_id)
+            row = db.execute('SELECT payload FROM job_index WHERE user_id=? AND id=?', (user_id, canonical)).fetchone()
+        return json.loads(row['payload']) if row else None
 
     def favorite(self, job, remove=False, user_id=0):
         with self.connection() as db:
