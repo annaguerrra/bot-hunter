@@ -1,17 +1,17 @@
 "use strict";
 
-const onboardingState = { progress: null, step: 0, active: false, busy: false, loadVersion: 0, drafts: {} };
+const onboardingState = { progress: null, step: 0, active: false, busy: false, loadVersion: 0, drafts: {}, target: null, frame: 0 };
 const tourSteps = [
-  { view: 'first-steps', target: '.onboarding-welcome', title: 'Seu radar de oportunidades', text: 'Aqui você encontra seu checklist inicial. Vamos conhecer os recursos e configurar seus alertas. Você pode pausar e continuar a qualquer momento.', action: 'Ver meus primeiros passos' },
-  { view: 'first-steps', target: '#onboarding-email-form', title: 'E-mail para receber vagas', text: 'Cadastre seu endereço pessoal neste formulário. A administração configura o serviço de envio. Você escolhe quais vagas enviar; salvar o endereço não dispara um e-mail.', action: 'Configurar meu e-mail', focus: '#onboarding-email' },
-  { view: 'first-steps', target: '#onboarding-telegram-card', title: 'Conecte seu Telegram', text: 'Vincular Telegram abre um link pessoal do bot. Toque em Iniciar no Telegram, volte e confirme. A aplicação encontra seu chat ID. Se já tiver o número, pode cadastrá-lo manualmente.', action: 'Vincular meu Telegram', focus: '#onboarding-telegram-start' },
-  { view: 'explore', target: '.filter-panel', title: 'Explorar vagas e salvar preferências', text: 'Escolha cargos, região, país, estado, salário e fontes. Produto e produção usam termos em outros idiomas e mínimo de R$ 7.000 por mês. Salários incertos ficam em Para análise. Para outras áreas, escolha Termos personalizados.', action: 'Escolher meus filtros', focus: '#keywords' },
-  { view: 'explore', target: '#usage-summary', title: 'Sua cota de consultas', text: 'Veja seu saldo diário antes de buscar. O modo automático troca de fonte dentro dos seus filtros e oferece atividades quando não há novas vagas. Gemini pode organizar essas atividades se a administração permitir e houver saldo. Explorar sem Jooble mostra alternativas sem usar IA.', action: 'Ver minha cota' },
-  { view: 'companies', target: '#view-companies', title: 'Empresas que você acompanha', text: 'Cadastre páginas de carreiras e ative as empresas que deseja consultar. Descobrir empresas sugere sites com anúncios verificados a partir dos seus filtros; Gemini pode ajudar quando estiver disponível.', action: 'Conhecer minhas empresas' },
-  { view: 'favorites', target: '#view-favorites', title: 'Vagas salvas', text: 'Use o coração nos resultados para guardar oportunidades. As vagas salvas pertencem à sua conta e continuam disponíveis para revisar e abrir o anúncio original.', action: 'Ver minhas vagas salvas' },
-  { view: 'history', target: '#view-history', title: 'Histórico de buscas', text: 'Retome os resultados de uma busca anterior sem gastar outra consulta Jooble. Confira a data e o anúncio original antes de se candidatar, porque uma vaga pode encerrar.', action: 'Conhecer meu histórico' },
-  { view: 'integrations', target: '#view-integrations', title: 'Fontes e serviços conectados', text: 'Aqui você vê as fontes disponíveis. A administração cadastra as chaves de Jooble, Google Empregos e Gemini, configura o envio de e-mails e ajusta os limites compartilhados. Cada pessoa cadastra seus próprios contatos em Meu perfil.', action: 'Ver integrações' },
-  { view: 'profile', target: '#view-profile', title: 'Meu perfil e próximos passos', text: 'Atualize nome, e-mail de alertas e Telegram, salve preferências e altere sua senha. Seu checklist fica em Primeiros passos. Você pode rever este tour sempre que quiser.', action: 'Abrir meu perfil', focus: '#profile-name' },
+  { view: 'first-steps', target: '#onboarding-resume', title: 'Seu radar de oportunidades', text: 'Aqui você encontra seu checklist inicial. Vamos conhecer os recursos e configurar seus alertas. Você pode pausar e continuar a qualquer momento.', action: 'Ver meus primeiros passos' },
+  { view: 'first-steps', target: '#onboarding-email', title: 'E-mail para receber vagas', text: 'Cadastre seu endereço pessoal neste formulário. A administração configura o serviço de envio. Você escolhe quais vagas enviar; salvar o endereço não dispara um e-mail.', action: 'Configurar meu e-mail', focus: '#onboarding-email' },
+  { view: 'first-steps', target: '#onboarding-telegram-start', title: 'Conecte seu Telegram', text: 'Vincular Telegram abre um link pessoal do bot. Toque em Iniciar no Telegram, volte e confirme. A aplicação encontra seu chat ID. Se já tiver o número, pode cadastrá-lo manualmente.', action: 'Vincular meu Telegram', focus: '#onboarding-telegram-start' },
+  { view: 'explore', target: '#keywords', title: 'Explorar vagas e salvar preferências', text: 'Escolha cargos, região, país, estado, salário e fontes. Produto e produção usam termos em outros idiomas e mínimo de R$ 7.000 por mês. Salários incertos ficam em Para análise. Para outras áreas, escolha Termos personalizados.', action: 'Escolher meus filtros', focus: '#keywords' },
+  { view: 'explore', target: '#usage-summary h2', title: 'Sua cota de consultas', text: 'Veja seu saldo diário antes de buscar. O modo automático troca de fonte dentro dos seus filtros e oferece atividades quando não há novas vagas. Gemini pode organizar essas atividades se a administração permitir e houver saldo. Explorar sem Jooble mostra alternativas sem usar IA.', action: 'Ver minha cota' },
+  { view: 'companies', target: '#discover-companies', title: 'Empresas que você acompanha', text: 'Cadastre páginas de carreiras e ative as empresas que deseja consultar. Descobrir empresas sugere sites com anúncios verificados a partir dos seus filtros; Gemini pode ajudar quando estiver disponível.', action: 'Conhecer minhas empresas' },
+  { view: 'favorites', target: '#view-favorites h1', title: 'Vagas salvas', text: 'Use o coração nos resultados para guardar oportunidades. As vagas salvas pertencem à sua conta e continuam disponíveis para revisar e abrir o anúncio original.', action: 'Ver minhas vagas salvas' },
+  { view: 'history', target: '#history-tabs', title: 'Buscas anteriores e todas as vagas', text: 'Por busca mostra prévias e permite abrir todos os resultados de cada pesquisa. Todas as vagas reúne seu acervo sem repetir anúncios equivalentes, com filtro de salário. Isso não gasta consultas. Confira o anúncio original antes de se candidatar.', action: 'Conhecer meu histórico' },
+  { view: 'integrations', target: '#view-integrations .integration-card h2', title: 'Fontes e serviços conectados', text: 'Aqui você vê as fontes disponíveis. A administração cadastra as chaves de Jooble, Google Empregos e Gemini, configura o envio de e-mails e ajusta os limites compartilhados. Cada pessoa cadastra seus próprios contatos em Meu perfil.', action: 'Ver integrações' },
+  { view: 'profile', target: '#profile-name', title: 'Meu perfil e próximos passos', text: 'Atualize nome, e-mail de alertas e Telegram, salve preferências e altere sua senha. Seu checklist fica em Primeiros passos. Você pode rever este tour sempre que quiser.', action: 'Abrir meu perfil', focus: '#profile-name' },
 ];
 
 async function loadOnboarding() {
@@ -45,11 +45,13 @@ async function saveTour(status = 'paused') {
 
 async function renderTour() {
   const step = tourSteps[onboardingState.step];
-  $$('.tour-target').forEach((target) => target.classList.remove('tour-target'));
+  $$('.tour-target').forEach((target) => { target.classList.remove('tour-target'); target.removeAttribute('aria-describedby'); });
   location.hash = step.view;
   await navigate();
   const target = $(step.target);
+  onboardingState.target = target;
   target?.classList.add('tour-target');
+  target?.setAttribute('aria-describedby', 'tour-description');
   target?.scrollIntoView({ block: 'center', behavior: 'instant' });
   $('#tour-counter').textContent = `Etapa ${onboardingState.step + 1} de ${tourSteps.length}`;
   $('#tour-title').textContent = step.title;
@@ -57,13 +59,53 @@ async function renderTour() {
   $('#tour-action').textContent = step.action;
   $('#tour-back').disabled = onboardingState.step === 0;
   $('#tour-next').textContent = onboardingState.step === tourSteps.length - 1 ? 'Concluir tour' : 'Próximo';
-  if (!$('#onboarding-tour').open) $('#onboarding-tour').showModal();
-  $('#tour-next').focus();
+  $('#onboarding-tour').classList.remove('hidden');
+  positionTour(true);
+  $('#tour-next').focus({preventScroll: true});
+}
+
+function positionTour(adjustAnchor = false) {
+  // A dica fica ao lado do controle, sem fundo escuro, desfoque ou bloqueio da página.
+  if (!onboardingState.active || !onboardingState.target) return;
+  const tip = $('#onboarding-tour');
+  const anchor = onboardingState.target.getBoundingClientRect();
+  if (!anchor.width || !anchor.height) return;
+  const viewport = window.visualViewport;
+  const x = viewport?.offsetLeft || 0, y = viewport?.offsetTop || 0;
+  const width = viewport?.width || innerWidth, height = viewport?.height || innerHeight;
+  const space = 12, gap = 14;
+  const header = getComputedStyle($('.sidebar')).position === 'sticky' ? $('.sidebar').getBoundingClientRect().bottom : y;
+  const safeTop = Math.max(y, header) + space;
+  tip.style.maxHeight = `${Math.max(180, y + height - safeTop - space - anchor.height - gap - 4)}px`;
+  const box = tip.getBoundingClientRect();
+  const placements = [
+    {side: 'right', left: anchor.right + gap, top: anchor.top},
+    {side: 'left', left: anchor.left - box.width - gap, top: anchor.top},
+    {side: 'bottom', left: anchor.left, top: anchor.bottom + gap},
+    {side: 'top', left: anchor.left, top: anchor.top - box.height - gap},
+  ];
+  const fits = (p) => p.left >= x + space && p.left + box.width <= x + width - space && p.top >= safeTop && p.top + box.height <= y + height - space;
+  const fitting = placements.find(fits);
+  if (!fitting && adjustAnchor && anchor.height + box.height + gap < y + height - safeTop - space) {
+    window.scrollBy({top: anchor.top - safeTop, behavior: 'instant'});
+    positionTour(false); return;
+  }
+  const placement = fitting || placements.slice(2).sort((a, b) => Math.abs(a.top - y) - Math.abs(b.top - y))[0];
+  tip.style.left = `${Math.max(x + space, Math.min(placement.left, x + width - box.width - space))}px`;
+  tip.style.top = `${Math.max(safeTop, Math.min(placement.top, y + height - box.height - space))}px`;
+  tip.dataset.side = placement.side;
+}
+
+function requestTourPosition() {
+  if (onboardingState.frame) return;
+  onboardingState.frame = requestAnimationFrame(() => { onboardingState.frame = 0; positionTour(); });
 }
 
 async function startTour(replay = false) {
   onboardingState.step = replay || onboardingState.progress?.tour_status === 'completed' ? 0 : onboardingState.progress?.tour_step || 0;
   onboardingState.active = true;
+  $('#toast').classList.add('hidden');
+  document.body.classList.add('tour-active');
   await saveTour();
   await renderTour();
 }
@@ -71,8 +113,10 @@ async function startTour(replay = false) {
 async function pauseTour(completed = false) {
   await saveTour(completed ? 'completed' : 'paused');
   onboardingState.active = false;
-  $('#onboarding-tour').close();
-  $$('.tour-target').forEach((target) => target.classList.remove('tour-target'));
+  document.body.classList.remove('tour-active');
+  $('#onboarding-tour').classList.add('hidden');
+  $$('.tour-target').forEach((target) => { target.classList.remove('tour-target'); target.removeAttribute('aria-describedby'); });
+  onboardingState.target = null;
   await loadOnboarding();
   if (completed) { location.hash = 'first-steps'; await navigate(); toast('Tour concluído. Continue seu checklist em Primeiros passos.'); }
 }
@@ -104,7 +148,18 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#onboarding-resume').addEventListener('click', () => guarded(() => startTour()));
   $('#onboarding-replay').addEventListener('click', () => guarded(() => startTour(true)));
   $('#tour-pause').addEventListener('click', () => guarded(() => tourAction(() => pauseTour())));
-  $('#onboarding-tour').addEventListener('cancel', (event) => { event.preventDefault(); guarded(() => tourAction(() => pauseTour())); });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && onboardingState.active && !$('dialog[open]')) { event.preventDefault(); guarded(() => tourAction(() => pauseTour())); }
+  });
+  window.addEventListener('resize', requestTourPosition);
+  window.addEventListener('scroll', requestTourPosition, {capture: true, passive: true});
+  window.visualViewport?.addEventListener('resize', requestTourPosition);
+  window.visualViewport?.addEventListener('scroll', requestTourPosition);
+  const observer = new ResizeObserver(requestTourPosition);
+  observer.observe($('#onboarding-tour'));
+  window.addEventListener('hashchange', () => {
+    if (onboardingState.active && location.hash.slice(1) !== tourSteps[onboardingState.step].view) guarded(() => tourAction(() => pauseTour()));
+  });
   $('#tour-next').addEventListener('click', () => guarded(() => tourAction(async () => {
     if (onboardingState.step === tourSteps.length - 1) return pauseTour(true);
     onboardingState.step += 1;

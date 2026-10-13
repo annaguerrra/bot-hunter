@@ -3,6 +3,10 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const state = { config: null, jobs: [], favorites: [], selected: new Set(), searchId: "", history: [], searching: false, salaryView: "eligible" };
+state.historyTab = 'searches';
+state.historyResults = new Map();
+state.catalog = {jobs: [], total: 0, offset: 0, limit: 40};
+state.catalogVersion = 0;
 const money = (value) => Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 let csrf = $('meta[name="hunter-csrf"]').content;
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
@@ -133,15 +137,15 @@ function renderIntegrations() {
   });
 }
 
-function jobCard(job, savedView = false) {
-  const saved = state.favorites.some((favorite) => favorite.id === job.id);
+function jobCard(job, savedView = false, searchIdentifier = state.searchId) {
+  const saved = state.favorites.some((favorite) => favorite.id === job.id || (job.canonical_id && favorite.canonical_id === job.canonical_id));
   const location = job.location || job.country_name || "Localização não informada";
   const date = job.updated ? new Date(job.updated).toLocaleDateString("pt-BR") : job.posted_label || "";
   const check = job.salary_check;
   const eligible = check?.status === "eligible";
   const salaryLabel = eligible ? `${money(check.monthly_brl)}/mês · piso equivalente` : "Para análise · salário não confirmado";
   const evaluation = job.ai_assessment ? `Gemini: ${job.ai_assessment.score}/100 · ${job.ai_assessment.reason}` : job.match?.reason || "";
-  return `<article class="job-card"><div class="job-top"><span class="company-monogram">${esc((job.company || "?").slice(0, 2).toUpperCase())}</span><div class="job-title-wrap"><h3 class="job-title"><button data-job-detail="${job.id}">${esc(job.title)}</button></h3><div class="job-company">${esc(job.company || "Empresa não informada")}</div></div><button class="job-save${saved ? " saved" : ""}" data-job-save="${job.id}" aria-label="${saved ? "Remover vaga salva" : "Salvar vaga"}" aria-pressed="${saved}">${icon("heart")}</button></div><div class="job-meta"><span>${icon("pin")}${esc(location)}</span>${job.employment ? `<span>${icon("briefcase")}${esc(job.employment)}</span>` : ""}${job.salary ? `<span>${esc(job.salary)}</span>` : ""}</div><p class="salary-verdict${eligible ? "" : " pending"}">${esc(salaryLabel)}</p><p class="field-help">${esc(evaluation)}</p><div class="job-tags">${job.country_name ? `<span class="tag">${esc(job.country_name)}${job.country_basis === "consulta" ? " · país da busca" : ""}</span>` : ""}${job.remote ? '<span class="tag">Remoto</span>' : ""}${job.sources.map((source) => `<span class="tag source">${esc(source)}</span>`).join("")}</div><div class="job-bottom">${savedView || !eligible ? `<span class="job-date">${esc(date)}</span>` : `<label class="checkbox-label job-select"><input type="checkbox" data-job-select="${job.id}" ${state.selected.has(job.id) ? "checked" : ""}>Selecionar para alerta</label>`}<a class="job-apply" href="${esc(job.link)}" target="_blank" rel="noopener noreferrer">Ver oportunidade ${icon("external")}</a></div></article>`;
+  return `<article class="job-card" data-job-search="${esc(searchIdentifier)}"><div class="job-top"><span class="company-monogram">${esc((job.company || "?").slice(0, 2).toUpperCase())}</span><div class="job-title-wrap"><h3 class="job-title"><button data-job-detail="${job.id}">${esc(job.title)}</button></h3><div class="job-company">${esc(job.company || "Empresa não informada")}</div></div><button class="job-save${saved ? " saved" : ""}" data-job-save="${job.id}" aria-label="${saved ? "Remover vaga salva" : "Salvar vaga"}" aria-pressed="${saved}">${icon("heart")}</button></div><div class="job-meta"><span>${icon("pin")}${esc(location)}</span>${job.employment ? `<span>${icon("briefcase")}${esc(job.employment)}</span>` : ""}${job.salary ? `<span>${esc(job.salary)}</span>` : ""}</div><p class="salary-verdict${eligible ? "" : " pending"}">${esc(salaryLabel)}</p><p class="field-help">${esc(evaluation)}</p><div class="job-tags">${job.country_name ? `<span class="tag">${esc(job.country_name)}${job.country_basis === "consulta" ? " · país da busca" : ""}</span>` : ""}${job.remote ? '<span class="tag">Remoto</span>' : ""}${job.sources.map((source) => `<span class="tag source">${esc(source)}</span>`).join("")}</div><div class="job-bottom">${savedView || !eligible ? `<span class="job-date">${esc(date)}</span>` : `<label class="checkbox-label job-select"><input type="checkbox" data-job-select="${job.id}" ${state.selected.has(job.id) ? "checked" : ""}>Selecionar para alerta</label>`}<a class="job-apply" href="${esc(job.link)}" target="_blank" rel="noopener noreferrer">Ver oportunidade ${icon("external")}</a></div></article>`;
 }
 
 function renderJobs() {
@@ -241,18 +245,23 @@ async function loadFavorites() {
   $("#favorites-list").innerHTML = state.favorites.length ? state.favorites.map((job) => jobCard(job, true)).join("") : empty("Guarde as oportunidades que combinam com você.", "Clique no coração de uma vaga para encontrá-la aqui depois.", "heart");
 }
 
-async function toggleFavorite(identifier) {
-  const job = [...state.jobs, ...state.favorites].find((item) => item.id === identifier);
+async function toggleFavorite(identifier, searchIdentifier = state.searchId) {
+  const historic = state.historyResults.get(searchIdentifier);
+  const current = searchIdentifier && searchIdentifier === state.searchId ? state.jobs : state.catalog.jobs;
+  const job = [...(historic?.jobs || []), ...(historic?.review_jobs || []), ...current, ...state.favorites].find((item) => item.id === identifier);
   if (!job) return;
-  const saved = state.favorites.some((favorite) => favorite.id === identifier);
-  await api(saved ? `/api/favorites/${identifier}` : "/api/favorites", { method: saved ? "DELETE" : "POST", body: saved ? undefined : JSON.stringify({ id: identifier, search_id: state.searchId }) });
+  const saved = state.favorites.find((favorite) => favorite.id === identifier || (job.canonical_id && favorite.canonical_id === job.canonical_id));
+  await api(saved ? `/api/favorites/${saved.id}` : "/api/favorites", { method: saved ? "DELETE" : "POST", body: saved ? undefined : JSON.stringify({ id: identifier, search_id: searchIdentifier }) });
   await loadFavorites();
   if (state.searchId) renderJobs();
+  renderHistory(); renderCatalog();
   toast(saved ? "Vaga removida das salvas." : "Oportunidade salva para olhar depois.");
 }
 
-function jobDetail(identifier) {
-  const job = [...state.jobs, ...state.favorites].find((item) => item.id === identifier);
+function jobDetail(identifier, searchIdentifier = state.searchId) {
+  const historic = state.historyResults.get(searchIdentifier);
+  const current = searchIdentifier && searchIdentifier === state.searchId ? state.jobs : state.catalog.jobs;
+  const job = [...(historic?.jobs || []), ...(historic?.review_jobs || []), ...current, ...state.favorites].find((item) => item.id === identifier);
   if (!job) return;
   $("#job-detail").innerHTML = `<h2 class="detail-title">${esc(job.title)}</h2><p class="detail-company">${esc(job.company)} · ${esc(job.location)}</p><div class="job-tags">${job.sources.map((source) => `<span class="tag source">${esc(source)}</span>`).join("")}</div><p class="salary-verdict">${esc(job.salary_check?.reason || "Salário não verificado")}${job.salary_check?.monthly_brl ? " · " + money(job.salary_check.monthly_brl) + "/mês" : ""}</p><p class="field-help">${esc(job.salary || "Salário não informado")}${job.salary_check?.currency && job.salary_check.currency !== "BRL" ? " · Cotação " + esc(job.salary_check.rate_date || "pendente") + " · " + esc(job.salary_check.rate_source || "") : ""}</p><p class="field-help">${esc(job.ai_assessment?.reason || job.match?.reason || "")}</p><div class="detail-description">${esc(job.description || "A fonte fornece o título e a localização desta oportunidade. Abra o anúncio original para ver a descrição completa e se candidatar.")}</div><a class="button primary" href="${esc(job.link)}" target="_blank" rel="noopener noreferrer">Abrir anúncio original ${icon("external")}</a>`;
   $("#job-dialog").showModal();
@@ -260,7 +269,50 @@ function jobDetail(identifier) {
 
 async function loadHistory() {
   state.history = (await api("/api/searches")).searches;
-  $("#history-list").innerHTML = state.history.length ? state.history.map((item) => `<article class="history-row"><span class="form-icon">${icon("clock")}</span><div><h3>${esc(item.filters.keywords.join(" / "))}</h3><p>${esc(item.filters.country ? countryName(item.filters.country) : regionName(item.filters.region))} · ${new Date(item.created_at).toLocaleString("pt-BR")} · ${{ done: "Concluída", running: "Em andamento", interrupted: "Interrompida", error: "Falha" }[item.status]}</p></div><div class="history-actions"><button class="button" data-history-open="${item.id}">Ver resultados</button><button class="button" data-history-repeat="${item.id}">Usar filtros ${icon("arrow")}</button></div></article>`).join("") : empty("Cada busca abre um novo caminho.", "As suas buscas aparecerão aqui para você retomar quando quiser.", "clock");
+  renderHistory();
+}
+
+function renderHistory() {
+  $('#history-list').innerHTML = state.history.length ? state.history.map((item) => {
+    const total = item.jobs_count + item.review_count;
+    const expanded = state.historyResults.get(item.id);
+    const preview = (item.preview_jobs || []).map((job) => `<a class="history-vacancy" href="${esc(job.link)}" target="_blank" rel="noopener noreferrer"><div><strong>${esc(job.title)}</strong><span>${esc(job.company)} · ${esc(job.location)}</span></div><span class="tag ${job.salary_check?.status === 'eligible' ? 'salary-approved' : 'salary-review'}">${job.salary_check?.status === 'eligible' ? money(job.salary_check.monthly_brl) + '/mês' : 'Salário para análise'}</span>${icon('external')}</a>`).join('');
+    const results = expanded ? [...(expanded.jobs || []), ...(expanded.review_jobs || [])].map((job) => jobCard(job, true, item.id)).join('') || '<p class="history-empty">Esta busca não encontrou vagas compatíveis. Use os filtros para tentar novamente.</p>' : '';
+    return `<article class="history-card"><div class="history-row"><span class="form-icon">${icon('clock')}</span><div class="history-heading"><h3>${esc([].concat(item.filters.keywords || []).join(' / ') || 'Busca de vagas')}</h3><p>${esc(item.filters.country ? countryName(item.filters.country) : regionName(item.filters.region))} · ${new Date(item.created_at).toLocaleString('pt-BR')}</p><span class="history-status">${esc({done:'Concluída',running:'Em andamento',interrupted:'Interrompida',error:'Falha'}[item.status])} · ${item.jobs_count} aprovadas · ${item.review_count} para análise</span></div><div class="history-actions"><button class="button" data-history-open="${esc(item.id)}" ${item.status !== 'done' ? 'disabled' : ''}>Abrir na busca ${icon('arrow')}</button><button class="text-button" data-history-repeat="${esc(item.id)}">Usar filtros</button></div></div>${expanded ? '' : preview}${item.status === 'done' ? `<button class="history-expand text-button" data-history-expand="${esc(item.id)}" aria-expanded="${Boolean(expanded)}" aria-controls="history-results-${esc(item.id)}">${expanded ? 'Recolher resultados' : `Ver ${total ? 'todas as ' + total + ' vagas' : 'resultado'} desta busca`}</button>` : '<p class="history-empty">Os resultados ficam disponíveis quando a busca termina.</p>'}<div id="history-results-${esc(item.id)}" class="history-results jobs-list${expanded ? '' : ' hidden'}">${results}</div></article>`;
+  }).join('') : empty('Seu histórico começa na primeira busca.', 'As vagas encontradas ficam aqui para rever sem gastar consultas.', 'clock');
+}
+
+async function setHistoryTab(tab) {
+  state.historyTab = tab;
+  $$('[data-history-tab]').forEach((button) => {
+    const active = button.dataset.historyTab === tab;
+    button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1;
+  });
+  $('#history-searches-panel').classList.toggle('hidden', tab !== 'searches');
+  $('#history-jobs-panel').classList.toggle('hidden', tab !== 'jobs');
+  if (tab === 'jobs') await loadCatalog(0);
+}
+
+async function loadCatalog(offset = 0) {
+  const version = ++state.catalogVersion;
+  $('#catalog-jobs').setAttribute('aria-busy', 'true');
+  $('#catalog-prev').disabled = $('#catalog-next').disabled = true;
+  try {
+    const result = await api('/api/jobs?' + new URLSearchParams({status: $('#catalog-status').value, offset}));
+    if (version !== state.catalogVersion) return;
+    state.catalog = result; renderCatalog();
+  } finally {
+    if (version === state.catalogVersion) $('#catalog-jobs').setAttribute('aria-busy', 'false');
+  }
+}
+
+function renderCatalog() {
+  const result = state.catalog;
+  $('#catalog-count').textContent = `${result.total} oportunidades · ${result.eligible || 0} com salário aprovado · ${result.review || 0} para análise`;
+  $('#catalog-jobs').innerHTML = result.jobs.length ? result.jobs.map((job) => jobCard(job, true, '')).join('') : empty('Nenhuma oportunidade nesta lista ainda.', 'Faça uma busca ou escolha outro filtro de salário.', 'briefcase');
+  $('#catalog-prev').disabled = !result.offset;
+  $('#catalog-next').disabled = result.offset + result.limit >= result.total;
+  $('#catalog-page').textContent = `Página ${Math.floor(result.offset / result.limit) + 1} de ${Math.max(1, Math.ceil(result.total / result.limit))}`;
 }
 
 async function restoreFilters(saved) {
@@ -296,7 +348,7 @@ async function navigate() {
   $$(".nav-link").forEach((link) => link.classList.toggle("active", link.dataset.view === view));
   $("#page-name").textContent = { explore: "Explorar vagas", companies: "Empresas", favorites: "Vagas salvas", history: "Histórico", integrations: "Integrações", profile: 'Meu perfil', 'first-steps': 'Primeiros passos' }[view];
   if (view === "favorites") await loadFavorites();
-  if (view === "history") await loadHistory();
+  if (view === "history") { await loadHistory(); if (state.historyTab === 'jobs') await loadCatalog(state.catalog.offset); }
   if (view === 'profile') await loadProfile();
   if (view === 'first-steps') await loadOnboarding();
   if (view === 'integrations' && state.config.user.role === 'admin') await loadEmailSettings();
@@ -336,6 +388,19 @@ $("#gemini-form").addEventListener("submit", (event) => {
 });
 $("#reset-filters").addEventListener("click", () => { $("#search-form").reset(); $("#keywords").value = state.config.defaults.keywords; setRegion(""); toast("Filtros restaurados."); });
 $("#sort-results").addEventListener("change", renderJobs);
+$('#history-tabs').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-history-tab]');
+  if (button) guarded(() => setHistoryTab(button.dataset.historyTab));
+});
+$('#history-tabs').addEventListener('keydown', (event) => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const tab = event.key === 'Home' ? 'searches' : event.key === 'End' ? 'jobs' : state.historyTab === 'jobs' ? 'searches' : 'jobs';
+  $(`[data-history-tab="${tab}"]`).focus(); guarded(() => setHistoryTab(tab));
+});
+$('#catalog-status').addEventListener('change', () => guarded(() => loadCatalog(0)));
+$('#catalog-prev').addEventListener('click', () => guarded(() => loadCatalog(Math.max(0, state.catalog.offset - state.catalog.limit))));
+$('#catalog-next').addEventListener('click', () => guarded(() => loadCatalog(state.catalog.offset + state.catalog.limit)));
 $("#clear-selection").addEventListener("click", () => { state.selected.clear(); renderJobs(); });
 $("#notify-open").addEventListener("click", () => {
   const maximum = state.config.limits?.max_notify_jobs || 15;
@@ -411,12 +476,26 @@ $("#google-form").addEventListener("submit", (event) => {
   });
 });
 document.addEventListener("click", (event) => {
-  const element = event.target.closest("[data-job-save], [data-job-detail], [data-company-remove], [data-history-open], [data-history-repeat], [data-close]");
+  const element = event.target.closest("[data-job-save], [data-job-detail], [data-company-remove], [data-history-open], [data-history-repeat], [data-history-expand], [data-close]");
   if (!element) return;
   guarded(async () => {
     if (element.dataset.close) $("#" + element.dataset.close).close();
-    if (element.dataset.jobSave) await toggleFavorite(element.dataset.jobSave);
-    if (element.dataset.jobDetail) jobDetail(element.dataset.jobDetail);
+    const searchIdentifier = element.closest('[data-job-search]')?.dataset.jobSearch ?? state.searchId;
+    if (element.dataset.jobSave) await toggleFavorite(element.dataset.jobSave, searchIdentifier);
+    if (element.dataset.jobDetail) jobDetail(element.dataset.jobDetail, searchIdentifier);
+    if (element.dataset.historyExpand) {
+      const identifier = element.dataset.historyExpand;
+      if (state.historyResults.has(identifier)) state.historyResults.delete(identifier);
+      else {
+        element.disabled = true;
+        try {
+          const result = await api(`/api/search/${identifier}`);
+          if (result.status !== 'done') throw new Error('Esta busca ainda não tem resultados concluídos.');
+          state.historyResults.set(identifier, result);
+        } finally { element.disabled = false; }
+      }
+      renderHistory();
+    }
     if (element.dataset.companyRemove) {
       const company = state.config.companies.find((item) => item.id === Number(element.dataset.companyRemove));
       if (!confirm(`Remover ${company.name} do seu radar?`)) return;

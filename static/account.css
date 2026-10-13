@@ -27,9 +27,4 @@
 .onboarding-card label { font-size:13px; }.onboarding-card input { margin-bottom:12px; }
 .onboarding-card .button { margin-top:12px; }.onboarding-card details { margin-top:20px; }
 .onboarding-actions { display:flex; flex-wrap:wrap; gap:12px; }
-#onboarding-tour { width:min(560px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; padding:28px; }
-#onboarding-tour::backdrop { background:rgba(15,40,29,.32); }
-#onboarding-tour h2 { font-size:26px; line-height:1.3; margin-top:16px; }
-#tour-description { font-size:15px; line-height:1.8; }.tour-controls { display:flex; justify-content:space-between; gap:16px; margin:24px 0 16px; }
-.tour-target { outline:3px solid #197a5b; outline-offset:5px; }
-@media (max-width:720px) { .onboarding-grid { grid-template-columns:1fr; }.onboarding-welcome { flex-direction:column; align-items:flex-start; }#onboarding-tour { padding:20px; } }
+@media (max-width:720px) { .onboarding-grid { grid-template-columns:1fr; }.onboarding-welcome { flex-direction:column; align-items:flex-start; } }

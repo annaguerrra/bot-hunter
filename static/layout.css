@@ -1,0 +1,189 @@
+/* Ajustes de leitura, espaçamento e navegação para todas as telas. */
+:root { --side: 232px; --muted: #687972; --line: #e2e9e5; --bg: #f6f8f7; }
+body { line-height: 1.5; }
+main { max-width: 1660px; padding: 0 clamp(22px, 3vw, 44px); }
+.sidebar { padding: 28px 18px 18px; overflow-y: auto; height: 100dvh; }
+.nav-link { font-size: 14px; padding: 12px; }
+.workspace { margin-top: 24px; }
+.sidebar-note { padding: 18px; }
+.topbar { height: 64px; }
+.hero { padding: 26px 0 22px; }
+.hero h1 { font-size: clamp(28px, 2.5vw, 36px); line-height: 1.18; letter-spacing: -1.1px; }
+.hero p, .page-heading p { font-size: 14px; line-height: 1.7; }
+.hero-art { width: 210px; }
+.hero-art > svg { width: 210px; height: 150px; }
+.world-label { font-size: 9px; left: 30px; bottom: 15px; }
+.eyebrow, .section-kicker { font-size: 10px; letter-spacing: 1.3px; }
+.region-bar { padding-bottom: 18px; margin-bottom: 24px; }
+.region-bar > span, .chip { font-size: 12px; }
+.explore-layout { grid-template-columns: 300px minmax(0, 1fr); gap: 26px; }
+.filter-panel { padding: 22px; }
+.filter-panel .panel-title { margin-bottom: 20px; }
+.panel-title h2 { font-size: 16px; }
+.filter-panel label:not(.checkbox-label), .field-label, .google-connect label, .add-company label { font-size: 13px; margin-top: 16px; }
+input:not([type=checkbox]), textarea, select { font-size: 14px; padding: 12px; min-height: 44px; }
+textarea { min-height: 82px; }
+.checkbox-label { font-size: 13px; gap: 10px; }
+.checkbox-label input { width: 16px; height: 16px; }
+.field-help { font-size: 12px; line-height: 1.6; color: #718178; }
+.text-button, .field-link { font-size: 12px; }
+.button { min-height: 40px; font-size: 13px; white-space: normal; line-height: 1.4; }
+.search-button { min-height: 46px; }
+.surface { padding: 24px; }
+.surface h2 { font-size: 20px; letter-spacing: -.3px; }
+.surface p { color: var(--muted); line-height: 1.65; }
+.page-heading { padding: 28px 0 24px; }
+.page-heading h1 { font-size: clamp(26px, 3vw, 34px); line-height: 1.2; }
+.results-heading { align-items: flex-start; margin: 0 0 20px; }
+.results-heading h2 { font-size: 23px; margin: 6px 0; }
+.results-heading p { font-size: 13px; }
+.results-heading select { width: 164px; min-height: 40px; font-size: 12px; }
+.empty-state { min-height: 300px; padding: 46px 24px; }
+.empty-state h3 { font-size: 20px; }
+.empty-state p { font-size: 14px; max-width: 500px; margin: auto; }
+.empty-badges { font-size: 12px; flex-wrap: wrap; }
+.job-title { font-size: 17px; }
+.job-company, .job-meta, .job-apply { font-size: 13px; }
+.job-card { padding: 20px; }
+.tag { font-size: 11px; }
+.job-select { font-size: 12px; }
+.job-date { font-size: 11px; }
+.salary-verdict { font-size: 14px; }
+.source-diagnostics { margin: 16px 0; border: 1px solid var(--line); border-radius: 10px; background: white; }
+.source-diagnostics > summary { cursor: pointer; padding: 14px 16px; font-size: 13px; color: #536d60; }
+.source-diagnostics[open] > summary { border-bottom: 1px solid var(--line); }
+.source-diagnostics .source-reports { padding: 12px; margin: 0; }
+.source-report { background: #f7faf8; border-color: #e5ece7; color: #4f6a59; }
+.results-footer > p { font-size: 12px; }
+.google-link { font-size: 13px; }
+.integration-grid, .account-layout, .onboarding-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.integration-card h2 { font-size: 18px; }
+.integration-card p, .google-connect p, .add-company > p { font-size: 14px; }
+.google-connect { gap: 32px; align-items: start; }
+.integration-status { font-size: 12px; }
+.usage-summary { gap: 16px; margin-bottom: 12px; padding: 18px 22px; }
+.usage-summary > div { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 22px; }
+.usage-summary h2 { font-size: 16px; margin: 0 0 8px; grid-column: 1/-1; }
+.usage-summary p { font-size: 12px; margin: 0; }
+.usage-summary #usage-reset { grid-column: 1/-1; font-size: 11px; }
+.usage-summary .button { font-size: 12px; }
+#routing-panel { margin-bottom: 18px; border-left: 3px solid #4b9777; }
+#routing-panel p, #routing-panel li { font-size: 13px; }
+#routing-decisions { display: grid; gap: 6px; }
+#routing-decisions p { margin: 0; }
+.guidance-links { gap: 8px; margin: 18px 0; }
+#routing-tips { padding-left: 20px; line-height: 1.65; }
+#routing-tips li { margin-bottom: 8px; }
+/* As cotas ficam em blocos recolhíveis, com formulários curtos e alinhados. */
+.quota-section { padding: 20px 0; border-bottom: 1px solid var(--line); }
+.quota-section:last-child { border-bottom: 0; }
+.quota-section > summary { cursor: pointer; font-size: 17px; font-weight: 600; }
+.quota-section p { font-size: 13px; max-width: 900px; }
+.quota-section form:not(.market-row) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; margin: 20px 0; max-width: 780px; }
+.quota-field label { display: block; font-size: 13px; margin-bottom: 6px; }
+.quota-section form > .checkbox-label, .quota-section form > button { grid-column: 1/-1; justify-self: start; }
+.quota-section form > .checkbox-label { margin: 0 0 8px; }
+#usage-limits-form { max-width: 780px; }
+/* Histórico com prévias e catálogo privado paginado. */
+.view-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+.view-tabs button { background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--muted); font-size: 14px; padding: 13px 18px; }
+.view-tabs button.active { border-bottom-color: var(--green); color: var(--green); font-weight: 650; }
+.history-card { background: white; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.history-row { border: 0; border-radius: 0; background: transparent; padding: 20px; align-items: flex-start; }
+.history-heading { min-width: 0; flex: 1; }
+.history-heading h3 { font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
+.history-heading p { font-size: 12px; }
+.history-status { display: block; font-size: 12px; color: #648271; margin-top: 7px; }
+.history-actions { flex-wrap: wrap; justify-content: flex-end; }
+.history-actions .button { font-size: 12px; }
+.history-vacancy { display: flex; align-items: center; gap: 12px; padding: 15px 20px; border-top: 1px solid #eff3f0; }
+.history-vacancy:hover { background: #f8fbf9; }
+.history-vacancy > div { flex: 1; min-width: 0; }
+.history-vacancy strong { display: block; font-size: 14px; font-weight: 550; }
+.history-vacancy > div span { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+.salary-approved { color: #216a4f; background: #eaf4ee; }
+.salary-review { color: #82601e; background: #fbf5e7; }
+.history-expand { margin: 12px 20px; padding: 8px 0; }
+.history-results { padding: 0 20px 20px; }
+.history-empty { padding: 0 20px 20px; font-size: 13px; color: var(--muted); }
+.catalog-toolbar { display: flex; justify-content: space-between; gap: 24px; align-items: center; }
+.catalog-toolbar h2 { font-size: 20px; margin: 0; }
+.catalog-toolbar label { font-size: 12px; min-width: 170px; }
+.catalog-jobs { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 24px; }
+.catalog-jobs .empty-state { grid-column: 1/-1; }
+.catalog-pagination { display: flex; gap: 18px; align-items: center; justify-content: center; margin: 24px 0; }
+.catalog-pagination span { font-size: 13px; color: var(--muted); }
+/* Tour não modal: somente a dica e o contorno do controle ativo. */
+#onboarding-tour { position: fixed; z-index: 80; display: flex; flex-direction: column; width: min(350px, calc(100vw - 24px)); margin: 0; padding: 18px; border: 1px solid #b9d5c5; border-radius: 12px; background: #fff; box-shadow: 0 8px 32px #153b2426; overflow-y: auto; }
+#onboarding-tour h2 { font-size: 17px; line-height: 1.35; margin: 12px 0 8px; }
+#tour-description { font-size: 13px; line-height: 1.6; margin: 0; color: #53675a; overflow: auto; min-height: 40px; }
+#onboarding-tour > :not(#tour-description) { flex-shrink: 0; }
+.tour-controls { display: flex; justify-content: space-between; gap: 12px; margin: 16px 0 10px; }
+#onboarding-tour .button { font-size: 12px; min-height: 36px; padding: 8px 12px; }
+#onboarding-tour .field-help { font-size: 11px; margin: 10px 0 0; }
+.tour-target { outline: 2px solid #4a9875; outline-offset: 4px; scroll-margin-block: 140px; }
+.tour-target:focus { outline: 2px solid #4a9875; }
+.tour-active main { padding-bottom: 340px; }
+.tour-active .toast { z-index: 60; }
+@media (max-width: 1200px) {
+  :root { --side: 210px; }
+  .explore-layout { grid-template-columns: 280px minmax(0, 1fr); gap: 20px; }
+  .usage-summary > div { grid-template-columns: 1fr; gap: 6px; }
+  .catalog-jobs { grid-template-columns: 1fr; }
+  .history-actions { margin-left: 0; }
+  .history-row { flex-wrap: wrap; }
+}
+@media (max-width: 950px) {
+  :root { --side: 76px; }
+  .sidebar { padding: 22px 10px; }
+  .sidebar .nav-link { font-size: 0; padding: 14px; }
+  .explore-layout { grid-template-columns: 275px minmax(0, 1fr); }
+  .company-layout { grid-template-columns: minmax(0, 1fr); }
+  .integration-grid { grid-template-columns: 1fr; }
+  .google-connect { grid-template-columns: 1fr; gap: 18px; }
+  .results-heading { flex-wrap: wrap; }
+}
+@media (max-width: 720px) {
+  :root { --side: 0px; }
+  .sidebar { position: sticky; top: 0; display: block; width: 100%; height: auto; padding: 12px 16px 8px; overflow: visible; z-index: 50; }
+  .sidebar .brand { justify-content: flex-start; margin: 0 0 10px; }
+  .sidebar .brand > span { display: block; font-size: 22px; }
+  .sidebar nav { display: flex; overflow-x: auto; margin: 0; padding: 2px 0 5px; gap: 4px; scrollbar-width: thin; }
+  .sidebar .nav-link, .sidebar .nav-link[data-view=history] { display: flex; flex: 0 0 auto; font-size: 12px; padding: 9px 10px; gap: 6px; }
+  main { margin-left: 0; padding: 0 16px; }
+  .topbar { height: 48px; }
+  .hero { padding: 22px 0 18px; }
+  .hero h1 { font-size: 29px; }
+  .explore-layout { display: block; }
+  .filter-panel { padding: 20px; margin-bottom: 24px; }
+  .filter-panel form > label.checkbox-label { grid-column: 1/-1; font-size: 13px; margin: 9px 0; }
+  .filter-panel form { gap: 0; }
+  input:not([type=checkbox]), textarea, select { font-size: 16px; }
+  .usage-summary { padding: 16px; gap: 12px; }
+  .usage-summary > div { width: 100%; }
+  .surface { padding: 20px; }
+  .surface, .results-area, .account-layout > *, .onboarding-grid > *, .integration-grid > * { min-width: 0; }
+  .account-layout, .onboarding-grid { grid-template-columns: 1fr; }
+  .onboarding-welcome .onboarding-actions { width: 100%; }
+  .button { min-height: 44px; }
+  .results-heading h2 { font-size: 21px; }
+  .results-heading select { width: 100%; }
+  .history-row { padding: 18px; gap: 12px; }
+  .history-actions { width: 100%; justify-content: flex-start; }
+  .history-vacancy { flex-wrap: wrap; padding: 14px 18px; }
+  .history-vacancy > div { flex-basis: calc(100% - 36px); }
+  .history-results { padding: 0 12px 12px; }
+  .catalog-toolbar { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .catalog-toolbar label { width: 100%; }
+  .catalog-pagination { gap: 10px; }
+  .catalog-pagination .button { padding: 9px 12px; }
+  .quota-section form:not(.market-row) { grid-template-columns: 1fr; }
+  .market-row > span, .market-row label { min-width: 0; width: 100%; }
+  #usage-key-balances input { width: 100%; }
+  .selection-bar { flex-wrap: wrap; }
+  .empty-state { min-height: 250px; padding: 36px 20px; }
+  .empty-state p { font-size: 13px; }
+  .empty-badges { gap: 10px; }
+  .main-footer { flex-wrap: wrap; gap: 8px; }
+  #onboarding-tour { padding: 16px; }
+}
