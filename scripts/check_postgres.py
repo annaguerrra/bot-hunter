@@ -82,6 +82,26 @@ def check(url):
                 except ValueError:
                     pass
                 assert cloud.search('qa-search', owner)
+                # Cotas Gemini também sobrevivem a outra função e são globais.
+                from jobhunter.gemini_usage import GeminiBudget
+                ai = GeminiBudget(cloud_budget, owner)
+                ai.configure(1, 2, 5, True)
+                ai.reserve(100)
+                restarted_ai = GeminiBudget(UsageBudget(cloud.path, isolated), owner)
+                assert restarted_ai.snapshot()['used_today'] == 1
+                try:
+                    restarted_ai.reserve(100)
+                    raise AssertionError('Gemini personal limit was bypassed')
+                except BudgetExceeded:
+                    pass
+                other_ai = GeminiBudget(cloud_budget, member)
+                other_ai.reserve(100)
+                assert other_ai.snapshot()['global_used_today'] == 2
+                try:
+                    GeminiBudget(cloud_budget, added).reserve(100)
+                    raise AssertionError('Gemini global limit was bypassed')
+                except BudgetExceeded:
+                    pass
                 # Simulamos duas funções sem disco gravável compartilhando sessões no Neon.
                 from web import create_app
                 with patch.dict(os.environ, {'DATABASE_URL': isolated, 'HUNTER_SERVERLESS': 'true',
@@ -102,7 +122,7 @@ def check(url):
                         first_app.extensions['executor'].shutdown(wait=True)
                         if second_app:
                             second_app.extensions['executor'].shutdown(wait=True)
-                print({'postgres_contract': 'passed', 'migration': 'passed', 'rows_copied': counts, 'isolation': 'passed', 'budgets': 'passed'})
+                print({'postgres_contract': 'passed', 'migration': 'passed', 'rows_copied': counts, 'isolation': 'passed', 'budgets': 'passed', 'gemini_budgets': 'passed'})
         finally:
             admin.execute('DROP SCHEMA ' + schema + ' CASCADE')
 

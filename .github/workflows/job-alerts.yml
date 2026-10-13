@@ -46,6 +46,15 @@ jobs:
           GEMINI_ENABLED: ${{ vars.GEMINI_ENABLED || 'false' }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.1-flash-lite' }}
           GEMINI_SEARCH_MODEL: ${{ vars.GEMINI_SEARCH_MODEL }}
+          # Alternativas automáticas e assistência limitada, sem ativar faturamento.
+          AUTO_SOURCE_ROUTING: ${{ vars.AUTO_SOURCE_ROUTING || 'true' }}
+          GEMINI_AUTO_FALLBACK: ${{ vars.GEMINI_AUTO_FALLBACK || 'false' }}
+          GEMINI_AUTO_MODEL: ${{ vars.GEMINI_AUTO_MODEL || 'gemini-3.1-flash-lite' }}
+          GEMINI_AUTO_SEARCH_MODEL: ${{ vars.GEMINI_AUTO_SEARCH_MODEL }}
+          GEMINI_USER_DAILY_LIMIT: ${{ vars.GEMINI_USER_DAILY_LIMIT || '2' }}
+          GEMINI_GLOBAL_DAILY_LIMIT: ${{ vars.GEMINI_GLOBAL_DAILY_LIMIT || '6' }}
+          GEMINI_MONTHLY_LIMIT: ${{ vars.GEMINI_MONTHLY_LIMIT || '60' }}
+          GEMINI_DAILY_TOKEN_BUDGET: ${{ vars.GEMINI_DAILY_TOKEN_BUDGET || '100000' }}
           JOOBLE_KEYS_JSON: ${{ secrets.JOOBLE_KEYS_JSON }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           HUNTER_CONFIG_ENV_PRIORITY: 'true'

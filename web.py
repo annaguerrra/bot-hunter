@@ -46,6 +46,8 @@ def validate_filters(body, companies):
     if state and (not country or state not in {item["code"] for item in geo.states(country)}):
         raise ValueError("Selecione um estado ou província do país escolhido.")
     sources = body.get("sources", ["companies"])
+    if sources == [] and body.get('auto_sources') is True:
+        sources = ['jooble']
     if not isinstance(sources, list) or not sources or any(not isinstance(item, str) or item not in {"companies", "google", "jooble", "gemini"} for item in sources):
         raise ValueError("Selecione pelo menos uma fonte válida.")
     company_ids = body.get("company_ids", [company["id"] for company in companies if company["enabled"]])
@@ -54,7 +56,7 @@ def validate_filters(body, companies):
     valid_ids = {company["id"] for company in companies if company["enabled"]}
     if any(item not in valid_ids for item in company_ids):
         raise ValueError("Uma das empresas selecionadas está desativada ou não existe.")
-    if "companies" in sources and not company_ids:
+    if "companies" in sources and not company_ids and body.get('auto_sources') is not True:
         raise ValueError("Cadastre ou selecione uma empresa para consultar suas vagas.")
     try:
         pages = int(body.get("pages", 1))
@@ -66,7 +68,7 @@ def validate_filters(body, companies):
     excluded = body.get("excluded", "estágio;estagiário;aprendiz;intern;internship")
     if not isinstance(city, str) or len(city) > 100 or not isinstance(excluded, str) or len(excluded) > 300:
         raise ValueError("Cidade ou termos excluídos inválidos.")
-    for key in ("strict_title", "remote", "multilingual"):
+    for key in ("strict_title", "remote", "multilingual", "auto_sources"):
         if key in body and not isinstance(body[key], bool):
             raise ValueError("As opções de cargo e remoto precisam ser true ou false.")
     profile = body.get("profile", "both")
@@ -83,7 +85,8 @@ def validate_filters(body, companies):
             "city": city.strip(), "sources": list(dict.fromkeys(sources)), "company_ids": company_ids,
             "strict_title": body.get("strict_title", True), "remote": body.get("remote", False),
             "pages": pages, "excluded": main.split_terms(excluded), "profile": profile,
-            "multilingual": body.get("multilingual", True), "salary_min": minimum, 'jooble_count': jooble_count}
+            "multilingual": body.get("multilingual", True), "salary_min": minimum, 'jooble_count': jooble_count,
+            'auto_sources': body.get('auto_sources', False)}
 
 
 def create_app(db_path=None):
@@ -151,6 +154,8 @@ def create_app(db_path=None):
 
     @app.get("/api/config")
     def config():
+        from jobhunter.gemini_usage import GeminiBudget
+        auto_ai = os.getenv('AUTO_SOURCE_ROUTING', 'true').lower() == 'true' and GeminiBudget(usage, g.user['id']).snapshot()['auto_enabled']
         def configured(name):
             value = os.getenv(name, "").strip()
             return bool(value) and not value.startswith("COLE_")
@@ -159,9 +164,10 @@ def create_app(db_path=None):
                        preferences=g.user['preferences'],
                        limits={'max_notify_jobs': MAX_NOTIFY_JOBS, 'telegram_batch_jobs': 1 if serverless else MAX_NOTIFY_JOBS},
                        jooble_countries=list(providers.jooble_keys()), jooble_markets=MARKETS,
-                        integrations={"jooble": bool(providers.jooble_keys()), "google": configured("SERPAPI_API_KEY"), "gemini": configured("GEMINI_API_KEY") and os.getenv('GEMINI_ENABLED', 'true').lower() == 'true',
+                        integrations={"jooble": bool(providers.jooble_keys()), "google": configured("SERPAPI_API_KEY"), "gemini": configured("GEMINI_API_KEY") and (os.getenv('GEMINI_ENABLED', 'true').lower() == 'true' or auto_ai),
                                      "telegram": configured("TELEGRAM_BOT_TOKEN") and bool(contacts_for(g.user).get('telegram_chat_id')),
                                      "email": configured('EMAIL_FROM') and configured('EMAIL_APP_PASSWORD') and bool(contacts_for(g.user).get('email_to'))},
+                       automatic_enabled=os.getenv('AUTO_SOURCE_ROUTING', 'true').lower() == 'true',
                        defaults={"keywords": "product engineer;production engineer;engenheiro de produto", "sources": ["companies"],
                                  "salary_min": 7000, "profile": "both"})
 
@@ -239,6 +245,8 @@ def create_app(db_path=None):
         result = usage.snapshot(g.user['id'], providers.jooble_keys(), admin=g.user['role'] == 'admin')
         from jobhunter.google_usage import GoogleBudget
         result['google'] = GoogleBudget(usage).snapshot()
+        from jobhunter.gemini_usage import GeminiBudget
+        result['gemini'] = GeminiBudget(usage, g.user['id']).snapshot()
         if g.user['role'] == 'admin':
             with store.connection() as db:
                 result['users'] = [dict(row) for row in db.execute('SELECT id,name FROM users ORDER BY name')]
@@ -249,7 +257,10 @@ def create_app(db_path=None):
     @app.post('/api/integrations/usage')
     def usage_settings():
         body = request.get_json(silent=True) or {}
-        if body.get('action') == 'google':
+        if body.get('action') == 'gemini':
+            from jobhunter.gemini_usage import GeminiBudget
+            GeminiBudget(usage, g.user['id']).configure(body.get('user_daily'), body.get('global_daily'), body.get('monthly'), body.get('auto_enabled'))
+        elif body.get('action') == 'google':
             from jobhunter.google_usage import GoogleBudget
             GoogleBudget(usage).configure(body.get('daily'), body.get('monthly'), body.get('prior'))
         elif body.get('action') == 'balance':
@@ -282,7 +293,8 @@ def create_app(db_path=None):
         if not search_slots.acquire(blocking=False):
             return jsonify(error='Há pesquisas em andamento. Aguarde antes de descobrir empresas.'), 429
         try:
-            with http.deadline(240 if serverless else None):
+            from jobhunter.gemini import usage_scope
+            with http.deadline(240 if serverless else None), usage_scope(usage, g.user['id']):
                 result = suggest_companies(filters, store.companies(g.user['id']))
             identifier = uuid.uuid4().hex
             store.start_search(identifier, filters, g.user['id'])

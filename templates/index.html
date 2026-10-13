@@ -67,6 +67,8 @@
           <label for="state">Estado / província</label><select id="state" disabled><option value="">Selecione um país primeiro</option></select>
           <label for="city">Cidade <span class="optional">opcional</span></label><input id="city" placeholder="Ex.: Curitiba, Stuttgart, Shanghai" maxlength="100">
           <div class="filter-divider"></div><span class="field-label">Fontes da busca</span>
+          <label class="checkbox-label"><input id="auto-sources" type="checkbox" checked><span>Escolher alternativas automaticamente</span></label>
+          <p class="field-help">As fontes marcadas têm prioridade. Se faltarem resultados, o radar usa alternativas dentro das cotas e organiza próximos passos.</p>
           <label class="checkbox-label"><input type="checkbox" name="source" value="companies" checked><span>Empresas acompanhadas</span><span class="mini-label">DIRETO</span></label>
           <label class="checkbox-label"><input type="checkbox" name="source" value="jooble"><span>Jooble</span><span id="jooble-status" class="source-dot"></span></label>
           <label for="jooble-count">Vagas por consulta Jooble</label><select id="jooble-count"><option value="20">20 vagas</option><option value="50">50 vagas</option><option value="100" selected>100 vagas</option></select><p class="field-help">Coleta mais resultados na mesma consulta. O anúncio ainda precisa atender ao perfil e salário.</p>
@@ -84,6 +86,7 @@
       <div class="results-area">
         <div class="results-heading"><div><span class="section-kicker">EXPLORE O PRÓXIMO CAPÍTULO</span><h2 id="results-title">Oportunidades para você</h2><p id="results-subtitle">Escolha seu destino e deixe o radar trabalhar.</p></div><select id="sort-results" aria-label="Ordenar resultados"><option value="relevance">Mais compatíveis</option><option value="newest">Mais recentes</option><option value="company">Por empresa</option><option value="country">Por país</option></select></div>
         <div id="search-progress" class="search-progress hidden" role="status"><span class="spinner"></span><div><strong>Seu radar está explorando novas possibilidades…</strong><p>Consultando as fontes selecionadas. Você pode continuar navegando.</p></div></div>
+        {% include 'automatic_panel.html' %}
         <div id="source-reports" class="source-reports" aria-live="polite"></div>
         <div id="salary-tabs" class="region-chips hidden" role="group" aria-label="Situação do salário"><button class="chip active" type="button" data-salary-view="eligible">Salário aprovado (0)</button><button class="chip" type="button" data-salary-view="review">Para análise (0)</button></div>
         <div id="research-sources" class="source-reports"></div>

@@ -73,7 +73,7 @@ function filters() {
     company_ids: state.config.companies.filter((company) => company.enabled).map((company) => company.id),
     strict_title: $("#strict-title").checked, remote: $("#remote-only").checked,
     excluded: $("#excluded").value, pages: Number($("#pages").value), profile: $("#profile").value,
-    salary_min: Number($("#salary-min").value), multilingual: $("#multilingual").checked, jooble_count: Number($('#jooble-count').value) };
+    salary_min: Number($("#salary-min").value), multilingual: $("#multilingual").checked, jooble_count: Number($('#jooble-count').value), auto_sources: $('#auto-sources').checked };
 }
 
 function updateGoogleLink() {
@@ -85,6 +85,8 @@ function updateGoogleLink() {
 
 async function refreshConfig() {
   state.config = await api("/api/config");
+  $('#auto-sources').disabled = !state.config.automatic_enabled;
+  if (!state.config.automatic_enabled) $('#auto-sources').checked = false;
   $('#workspace-name').textContent = state.config.user.name;
   $$('[data-user-initial]').forEach((item) => item.textContent = state.config.user.name.slice(0, 1).toUpperCase());
   $('#google-form').closest('.google-connect').classList.toggle('hidden', state.config.user.role !== 'admin');
@@ -163,6 +165,7 @@ function renderReports(reports = []) {
 }
 
 function showSearchResult(result) {
+  renderRouting(result.routing);
   state.searchId = result.id;
   state.jobs = [...(result.jobs || []), ...(result.review_jobs || [])];
   state.salaryView = "eligible";
@@ -204,7 +207,9 @@ async function pollSearch(identifier, started = Date.now()) {
     setSearching(false);
     await loadHistory();
     await refreshUsage();
-    if (state.usage?.blocked || result.budget_limited || result.time_limited) await showGuidance();
+    // O radar já exibe atividades; não duplicamos as sugestões do botão manual.
+    if (result.routing) $('#guidance-panel').classList.add('hidden');
+    else if (state.usage?.blocked || result.budget_limited || result.time_limited) await showGuidance();
     toast(`${state.jobs.length} oportunidades encontradas. Seu radar foi atualizado.`);
   } catch (error) {
     setSearching(false);
@@ -273,6 +278,7 @@ async function restoreFilters(saved) {
   updateSalaryFloor();
   $("#multilingual").checked = saved.multilingual !== false;
   $('#jooble-count').value = String(saved.jooble_count || 100);
+  $('#auto-sources').checked = state.config.automatic_enabled && (saved.auto_sources ?? true);
   $$('input[name="source"]').forEach((input) => input.checked = saved.sources.includes(input.value));
   updateGoogleLink();
 }
@@ -496,6 +502,8 @@ async function refreshUsage() {
   const usage = state.usage;
   $('#usage-status').textContent = `${usage.used_today} consultas usadas hoje · ${usage.remaining_today} disponíveis agora · limite pessoal de ${usage.limits.user_daily}/dia.`;
   $('#google-usage-status').textContent = `Google Empregos: ${usage.google.used_today}/${usage.google.daily_limit} hoje · ${usage.google.used_month}/${usage.google.monthly_limit} neste mês · ${usage.google.remaining_today} disponíveis hoje.`;
+  $('#gemini-personal-status').textContent = `Gemini: ${usage.gemini.used_today}/${usage.gemini.user_daily} chamadas pessoais hoje · ${usage.gemini.remaining_today} disponíveis dentro das cotas compartilhadas. ${usage.gemini.auto_enabled ? 'Assistência automática autorizada.' : 'Assistência automática desativada.'}`;
+  $('#gemini-usage-status').textContent = `Gemini: ${usage.gemini.used_today}/${usage.gemini.user_daily} por pessoa hoje · ${usage.gemini.global_used_today}/${usage.gemini.global_daily} compartilhadas hoje · ${usage.gemini.used_month}/${usage.gemini.monthly} no mês. ${usage.gemini.blocked ? 'Em pausa; alternativas sem IA continuam disponíveis.' : 'Saldo disponível dentro da proteção.'}`;
   $('#usage-reset').textContent = 'O limite diário renova à meia-noite de São Paulo. Respostas iguais são reaproveitadas por 24 horas. As 500 consultas por chave não renovam diariamente.';
   $('#usage-summary').classList.toggle('budget-exhausted', usage.blocked);
   if (usage.markets) {
@@ -507,17 +515,42 @@ async function refreshUsage() {
     $('#usage-key-limit').value = usage.limits.key_daily;
     $('#google-daily-limit').value = usage.google.daily_limit;
     $('#google-monthly-limit').value = usage.google.monthly_limit;
+    $('#gemini-auto-enabled').checked = usage.gemini.auto_enabled;
+    $('#gemini-user-daily').value = usage.gemini.user_daily;
+    $('#gemini-global-daily').value = usage.gemini.global_daily;
+    $('#gemini-monthly').value = usage.gemini.monthly;
     $('#usage-account-note').textContent = `${usage.global_used_today} consultas compartilhadas usadas hoje; ${usage.global_remaining_today} restantes. O saldo abaixo inclui o consumo de todas as pessoas para cada chave.`;
     $('#usage-key-balances').innerHTML = usage.markets.map((market) => `<form class="market-row" data-usage-country="${esc(market.country)}"><span>${esc(countryName(market.country))}<small>${market.used_tracked} contadas · ${market.today_remaining} disponíveis hoje · ${market.calibrated ? 'saldo ajustado' : 'saldo estimado'}</small></span><label>Saldo total confirmado<input type="number" name="remaining" min="0" max="500" value="${market.remaining_estimate}" required></label><button class="button" type="submit">Ajustar saldo</button></form>`).join('');
   }
 }
 
-async function showGuidance() {
-  const result = await api('/api/guidance', {method: 'POST', body: JSON.stringify(filters())});
+async function showGuidance(plan) {
+  const result = plan?.activities ? {links: plan.activities, tips: plan.tips} : await api('/api/guidance', {method: 'POST', body: JSON.stringify(filters())});
   $('#guidance-links').innerHTML = result.links.map((link) => `<a class="button" href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.name)} ↗</a>`).join('');
   $('#guidance-tips').innerHTML = result.tips.map((tip) => `<li>${esc(tip)}</li>`).join('');
   $('#guidance-panel').classList.remove('hidden');
 }
+
+function renderRouting(plan) {
+  $('#routing-panel').classList.toggle('hidden', !plan);
+  if (!plan) return;
+  $('#routing-status').textContent = plan.state === 'activities' ? 'Hora de avançar com as oportunidades e recursos disponíveis.' : plan.substituted ? 'Uma fonte alternativa trouxe oportunidades para este perfil.' : 'O radar encontrou oportunidades sem precisar consumir outras fontes.';
+  $('#routing-decisions').innerHTML = plan.decisions.map((item) => `<p><strong>${esc(providerName(item.source))}</strong>: ${esc(item.note)}${item.opportunities ? ` ${item.opportunities} oportunidades.` : ''}</p>`).join('');
+  $('#routing-reset').textContent = plan.next_reset ? `Próxima disponibilidade estimada: ${new Date(plan.next_reset).toLocaleString('pt-BR')}. A próxima busca reavalia as fontes; limites próprios do provedor podem variar.` : 'Cada nova busca reavalia o saldo e as fontes disponíveis. O teto total de uma chave não renova diariamente.';
+  $('#routing-ai-note').textContent = plan.ai_note;
+  $('#routing-activities').innerHTML = plan.state === 'activities' ? plan.activities.map((item) => `<a class="button" href="${esc(item.url)}"${item.url.startsWith('/') ? '' : ' target="_blank" rel="noopener noreferrer"'}>${esc(item.name)}</a>`).join('') : '';
+  $('#routing-tips').innerHTML = plan.state === 'activities' ? plan.tips.map((tip) => `<li>${esc(tip)}</li>`).join('') : '';
+  $('#routing-saved').innerHTML = plan.saved_opportunities.length ? '<h3>Oportunidades anteriores para rever</h3><p>Confira disponibilidade e salário no anúncio original. Estas vagas não geram novos alertas.</p>' + plan.saved_opportunities.map((job) => `<p><a href="${esc(job.link)}" target="_blank" rel="noopener noreferrer">${esc(job.title)} · ${esc(job.company)}</a></p>`).join('') : '';
+}
+
+$('#gemini-usage-form').addEventListener('submit', (event) => {
+  event.preventDefault(); guarded(async () => {
+    await api('/api/integrations/usage', {method: 'POST', body: JSON.stringify({action: 'gemini',
+      user_daily: Number($('#gemini-user-daily').value), global_daily: Number($('#gemini-global-daily').value),
+      monthly: Number($('#gemini-monthly').value), auto_enabled: $('#gemini-auto-enabled').checked})});
+    await refreshUsage(); toast('Proteção Gemini salva; o consumo registrado foi preservado.');
+  });
+});
 
 function updateUsageUserLimit() {
   const selected = Number($('#usage-user').value);

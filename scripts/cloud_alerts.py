@@ -39,6 +39,8 @@ def run(search=False):
                                           'country': os.getenv('JOB_COUNTRY', 'BR'), 'city': os.getenv('JOB_LOCATION', '')}
             # Preferências já validadas guardam termos como lista; o formulário recebe texto.
             form = dict(form)
+            # Preferências explícitas prevalecem; novas contas usam a seleção econômica.
+            form.setdefault('auto_sources', os.getenv('AUTO_SOURCE_ROUTING', 'true').lower() == 'true')
             for field in ('keywords', 'excluded'):
                 if isinstance(form.get(field), list):
                     form[field] = ';'.join(form[field])

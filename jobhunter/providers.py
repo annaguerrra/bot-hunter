@@ -351,6 +351,9 @@ def jooble(filters, usage=None, user_id=0):
             try:
                 if results is None:
                     http.checkpoint()
+                    if filters.get('_cache_only'):
+                        filters['_budget_limited'] = True
+                        continue
                     if usage:
                         from .usage import BudgetExceeded
                         try:
@@ -432,6 +435,9 @@ def google_jobs(filters, usage=None, user_id=0):
                 data = usage.cached('serp:' + key, cache_params) if usage else None
                 if data is None:
                     http.checkpoint()
+                    if filters.get('_cache_only'):
+                        filters['_budget_limited'] = True
+                        return jobs, notes + ['Consulta fora do cache; nenhuma nova chamada foi feita enquanto a fonte está sem saldo.']
                     try:
                         if budget:
                             budget.reserve()
@@ -522,6 +528,15 @@ def enrich_company_jobs(company, jobs, filters):
 
 
 def run_search(filters, companies, usage=None, user_id=0):
+    from . import gemini
+    with gemini.usage_scope(usage, user_id):
+        if usage and filters.get('auto_sources') and os.getenv('AUTO_SOURCE_ROUTING', 'true').lower() == 'true':
+            from .automatic import search
+            return search(filters, companies, usage, user_id, _run_search)
+        return _run_search(filters, companies, usage, user_id)
+
+
+def _run_search(filters, companies, usage=None, user_id=0):
     providers = []
     if "companies" in filters["sources"]:
         providers.extend((company["name"], COMPANY_PROVIDERS[company["provider"]], company)
@@ -603,9 +618,13 @@ def run_search(filters, companies, usage=None, user_id=0):
         except NeedsConfiguration as exc:
             report.append({"name": name, "status": "pending", "received": 0, "matched": 0, "notes": [str(exc)]})
         except (requests.RequestException, ValueError, RuntimeError, OSError, KeyError, TypeError) as exc:
+            from .usage import BudgetExceeded
+            if isinstance(exc, BudgetExceeded):
+                report.append({'name': name, 'status': 'limited', 'received': 0, 'matched': 0, 'budget_limited': True, 'notes': [str(exc)]})
+                continue
             missing = "SERPAPI_API_KEY" if name == "Google Empregos" else "JOOBLE_API_KEY" if name == "Jooble" else "GEMINI_API_KEY" if name == "Gemini / Google Search" else ""
-            configured = os.getenv(missing, "").strip() if missing else "present"
-            note = f"Configure {missing} no .env para ativar esta fonte." if not configured or configured.startswith("COLE_") else f"Falha nesta fonte ({type(exc).__name__}). As demais fontes foram mantidas."
+            configured = ('present' if jooble_keys() else '') if name == 'Jooble' else os.getenv(missing, "").strip() if missing else "present"
+            note = f"Configure {missing} em Integrações para ativar esta fonte." if not configured or configured.startswith("COLE_") else f"Falha nesta fonte ({type(exc).__name__}). As demais fontes foram mantidas."
             if name == "Gemini / Google Search":
                 from .gemini import GeminiError
                 if isinstance(exc, GeminiError):
@@ -613,7 +632,7 @@ def run_search(filters, companies, usage=None, user_id=0):
             report.append({"name": name, "status": "pending" if not configured or configured.startswith("COLE_") else "error",
                            "received": 0, "matched": 0, "notes": [note]})
     candidates = list(jobs.values())
-    if "gemini" in filters["sources"] and candidates and os.getenv('GEMINI_ENABLED', 'true').lower() == 'true' and os.getenv("GEMINI_API_KEY", "").strip() and not os.getenv("GEMINI_API_KEY", "").startswith("COLE_"):
+    if not filters.get('_skip_ai_ranking') and "gemini" in filters["sources"] and candidates and os.getenv('GEMINI_ENABLED', 'true').lower() == 'true' and os.getenv("GEMINI_API_KEY", "").strip() and not os.getenv("GEMINI_API_KEY", "").startswith("COLE_"):
         try:
             from . import gemini
             gemini.rank_jobs(candidates, profile, filters)
