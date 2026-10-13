@@ -85,6 +85,7 @@ E-mail destinatário e chat ID pertencem ao perfil de cada conta no Neon; não p
 | `JOB_KEYWORDS` | `product engineer;production engineer;engenheiro de produto` | Até três termos padrão |
 | `JOB_PROFILE` | `both` | `product`, `production`, `both` ou `custom` |
 | `MIN_SALARY_BRL` | `7000` | Piso mensal em reais |
+| `MAX_SALARY_BRL` | vazio | Teto mensal opcional em reais; deve ser igual ou maior que o mínimo. Preferências pessoais salvas prevalecem. |
 | `JOB_COUNTRY` | `BR` | País ISO padrão |
 | `JOB_LOCATION` | vazio | Cidade padrão |
 | `MAX_JOBS` | `100` | Máximo de vagas aprovadas por pessoa/execução |
@@ -136,3 +137,11 @@ Os comandos `--test-telegram`, `--test-email` e execução completa enviam mensa
 O workflow [checks.yml](.github/workflows/checks.yml) testa sem Secrets de produção, valida JavaScript e verifica migração, isolamento, cotas e deduplicação em PostgreSQL descartável. [Configuração da automação e migração](docs/automation.md), [contas e acesso](docs/accounts.md).
 
 Para manter o projeto gratuito, use os planos gratuitos e não habilite faturamento adicional. GitHub Actions não exige hospedagem web: em repositório privado, confira os minutos incluídos na conta; no público, os runners padrão são gratuitos. [Cobrança Actions](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
+
+## Preferências e vagas salvas
+
+Em **Primeiros passos**, escolha uma área nos botões, região, país, estado/cidade e modalidade. O formulário sugere até três cargos editáveis; engenharia amplia os termos com idiomas e sinônimos locais. **Outra profissão** usa os cargos informados no título. **Salvar preferências e abrir meu radar** guarda o padrão pessoal e preenche os filtros, sem consultar vagas nem enviar mensagens. E-mail e Telegram são opcionais; cada pessoa configura seus próprios contatos, enquanto a administração configura os serviços. O tour permanece como dicas ao lado dos elementos, sem desfocar a página.
+
+A pretensão salarial tem mínimo e **máximo opcional**, em reais por mês. Comparamos o menor valor publicado, convertido para reais, com os limites inclusivos: R$ 8.000–15.000 pode atender a uma pretensão de R$ 7.000–10.000, pois seu piso está na faixa. R$ 6.000–9.000 não libera alerta com mínimo de R$ 7.000. Salários não informados ou incertos ficam para análise. Sem máximo, permanecem elegíveis salários acima do mínimo; engenharia mantém o piso de R$ 7.000. A validação vale nas duas fontes, empresas, Gemini e notificações. `MAX_SALARY_BRL` é uma GitHub Variable opcional para contas sem preferências salvas; não requer Secret novo.
+
+O coração responde imediatamente, com botão de 44 px e estado salvo em verde escuro. Cliques durante a gravação são ordenados por anúncio; uma falha devolve o último estado confirmado e mostra uma mensagem. Anúncios equivalentes de fontes distintas formam um favorito por pessoa. Em **Vagas salvas**, filtre país, cargo/empresa/cidade, situação salarial, modalidade e fonte; ordene por publicação, empresa ou piso mensal. Esses filtros trabalham sobre o acervo da conta e não gastam consultas. A aprovação salarial mostrada corresponde à busca que encontrou a vaga; o anúncio original pode mudar.
