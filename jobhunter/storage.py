@@ -215,10 +215,17 @@ class Store:
         return json.loads(row['payload']) if row else None
 
     def favorite(self, job, remove=False, user_id=0):
+        from .job_identity import resolve
         with self.connection() as db:
-            if remove:
-                db.execute('DELETE FROM favorites WHERE id=? AND user_id=?', (job['id'], user_id))
-            else:
+            # Anúncios equivalentes de fontes diferentes formam um único favorito por conta.
+            db.execute('BEGIN IMMEDIATE')
+            canonical = job.get('canonical_id') or resolve(db, job['id'], user_id)
+            for row in db.execute('SELECT id,payload FROM favorites WHERE user_id=?', (user_id,)).fetchall():
+                previous = json.loads(row['payload'])
+                previous_key = previous.get('canonical_id') or resolve(db, row['id'], user_id)
+                if row['id'] == job['id'] or previous_key == canonical:
+                    db.execute('DELETE FROM favorites WHERE user_id=? AND id=?', (user_id, row['id']))
+            if not remove:
                 db.execute('INSERT INTO favorites VALUES(?,?,?) ON CONFLICT(user_id,id) DO UPDATE SET payload=excluded.payload', (user_id, job['id'], json.dumps(job)))
 
     def favorites(self, user_id=0):
