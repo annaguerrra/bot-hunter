@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "catalog_purpose": "Sugestoes para cadastro opcional, nunca importacao automatica sem consentimento",
+  "note": "APIs publicas verificadas em 2026-10-12. Contagens sao da validacao do endpoint, nao vagas compativeis nem promessa de contratacao. Cadastro opcional.",
+  "companies": [
+    {
+      "name": "SGS",
+      "provider": "smartrecruiters",
+      "identifier": "SGS",
+      "url": "https://careers.smartrecruiters.com/SGS",
+      "status": "validated",
+      "tags": [
+        "qualidade",
+        "operações",
+        "inspecao",
+        "operacoes"
+      ],
+      "geography": [
+        "BR",
+        "global"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 1
+    },
+    {
+      "name": "Continental",
+      "provider": "smartrecruiters",
+      "identifier": "Continental",
+      "url": "https://careers.smartrecruiters.com/Continental",
+      "status": "validated",
+      "tags": [
+        "engenharia de produto",
+        "manufatura",
+        "automotivo"
+      ],
+      "geography": [
+        "global"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 1
+    },
+    {
+      "name": "Eurofins",
+      "provider": "smartrecruiters",
+      "identifier": "Eurofins",
+      "url": "https://careers.smartrecruiters.com/Eurofins",
+      "status": "validated",
+      "tags": [
+        "qualidade",
+        "operações",
+        "laboratorio",
+        "processos"
+      ],
+      "geography": [
+        "global"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 1
+    },
+    {
+      "name": "O-I Glass",
+      "provider": "smartrecruiters",
+      "identifier": "O-I",
+      "url": "https://careers.smartrecruiters.com/O-I",
+      "status": "validated",
+      "tags": [
+        "engenharia de produção",
+        "manufatura",
+        "industria",
+        "producao",
+        "processos"
+      ],
+      "geography": [
+        "global"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 1
+    },
+    {
+      "name": "TRIGO Group",
+      "provider": "smartrecruiters",
+      "identifier": "Trigo",
+      "url": "https://careers.smartrecruiters.com/Trigo",
+      "status": "validated",
+      "tags": [
+        "qualidade",
+        "manufatura",
+        "automotivo",
+        "fornecedores"
+      ],
+      "geography": [
+        "global"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 1
+    },
+    {
+      "name": "QIMA",
+      "provider": "smartrecruiters",
+      "identifier": "QIMA",
+      "url": "https://careers.smartrecruiters.com/QIMA",
+      "status": "validated",
+      "tags": [
+        "qualidade",
+        "supply chain",
+        "auditoria"
+      ],
+      "geography": [
+        "global"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 1
+    },
+    {
+      "name": "Turner & Townsend",
+      "provider": "smartrecruiters",
+      "identifier": "TurnerTownsend",
+      "url": "https://careers.smartrecruiters.com/TurnerTownsend",
+      "status": "validated",
+      "tags": [
+        "gestão de projetos",
+        "operações",
+        "gestao de projetos",
+        "custos",
+        "operacoes"
+      ],
+      "geography": [
+        "global"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 1
+    },
+    {
+      "name": "Exowatt",
+      "provider": "lever",
+      "identifier": "exowatt",
+      "url": "https://jobs.lever.co/exowatt",
+      "status": "validated",
+      "tags": [
+        "manufatura",
+        "qualidade",
+        "supply chain"
+      ],
+      "geography": [
+        "US"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 1
+    },
+    {
+      "name": "Rigetti Computing",
+      "provider": "lever",
+      "identifier": "rigetti",
+      "url": "https://jobs.lever.co/rigetti",
+      "status": "validated",
+      "tags": [
+        "engenharia de produto",
+        "manufatura",
+        "processos",
+        "hardware"
+      ],
+      "geography": [
+        "US"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 1
+    },
+    {
+      "name": "Divergent Technologies",
+      "provider": "greenhouse",
+      "identifier": "divergent",
+      "url": "https://job-boards.greenhouse.io/divergent",
+      "status": "validated",
+      "tags": [
+        "engenharia de produção",
+        "manufatura",
+        "automação",
+        "automacao",
+        "engenharia de producao"
+      ],
+      "geography": [
+        "US"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 126
+    },
+    {
+      "name": "Hadrian",
+      "provider": "ashby",
+      "identifier": "hadrian-automation",
+      "url": "https://jobs.ashbyhq.com/hadrian-automation",
+      "status": "validated",
+      "tags": [
+        "engenharia de produção",
+        "manufatura",
+        "automação",
+        "producao",
+        "automacao"
+      ],
+      "geography": [
+        "US"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 130
+    },
+    {
+      "name": "Collaborative Robotics",
+      "provider": "ashby",
+      "identifier": "cobot",
+      "url": "https://jobs.ashbyhq.com/cobot",
+      "status": "validated",
+      "tags": [
+        "engenharia de produto",
+        "automação",
+        "robotica",
+        "engenharia",
+        "automacao"
+      ],
+      "geography": [
+        "US"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 13
+    },
+    {
+      "name": "Eli Health",
+      "provider": "ashby",
+      "identifier": "eli",
+      "url": "https://jobs.ashbyhq.com/eli",
+      "status": "validated",
+      "tags": [
+        "operações",
+        "qualidade",
+        "supply chain",
+        "operacoes"
+      ],
+      "geography": [
+        "CA"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 5
+    },
+    {
+      "name": "MatX",
+      "provider": "ashby",
+      "identifier": "matx",
+      "url": "https://jobs.ashbyhq.com/matx",
+      "status": "validated",
+      "tags": [
+        "engenharia de produto",
+        "manufatura",
+        "supply chain",
+        "hardware",
+        "producao",
+        "engenharia"
+      ],
+      "geography": [
+        "US"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 45
+    },
+    {
+      "name": "First Order Effects",
+      "provider": "ashby",
+      "identifier": "firstordereffects",
+      "url": "https://jobs.ashbyhq.com/firstordereffects",
+      "status": "validated",
+      "tags": [
+        "engenharia de produto",
+        "manufatura",
+        "operações",
+        "engenharia",
+        "operacoes"
+      ],
+      "geography": [
+        "US"
+      ],
+      "default_enabled": false,
+      "validated_at": "2026-10-12",
+      "validation_returned": 15
+    }
+  ],
+  "manual_only": [
+    {
+      "name": "SpaceX",
+      "url": "https://www.spacex.com/careers",
+      "reason": "O antigo endereco Greenhouse redireciona; nao presumir que o board API funciona"
+    },
+    {
+      "name": "Anduril",
+      "url": "https://www.anduril.com/open-roles",
+      "reason": "O antigo endereco Greenhouse redireciona; precisa nova identificacao ATS"
+    },
+    {
+      "name": "Path Robotics",
+      "url": "https://www.path-robotics.com/careers",
+      "reason": "O antigo endereco Greenhouse redireciona; precisa nova identificacao ATS"
+    }
+  ]
+}

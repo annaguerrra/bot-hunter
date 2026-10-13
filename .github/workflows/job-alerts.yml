@@ -66,6 +66,7 @@ jobs:
           JOB_COUNTRY: ${{ vars.JOB_COUNTRY || 'BR' }}
           JOB_LOCATION: ${{ vars.JOB_LOCATION }}
           MAX_JOBS: ${{ vars.MAX_JOBS || '100' }}
+          COMPANY_SEARCH_LIMIT: ${{ vars.COMPANY_SEARCH_LIMIT || '10' }}
           WEB_MAX_MARKET_QUERIES: ${{ vars.WEB_MAX_MARKET_QUERIES || '6' }}
           RUN_SEARCH: ${{ (github.event_name == 'workflow_dispatch' && inputs.search) || github.event.schedule == '17 9 * * 1-5' }}
         run: |

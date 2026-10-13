@@ -135,9 +135,9 @@ class UsageBudget:
             row = db.execute('SELECT payload FROM query_cache WHERE signature=? AND expires>?', (signature, self.clock())).fetchone()
         return json.loads(row['payload']) if row else None
 
-    def remember(self, key, query, jobs):
+    def remember(self, key, query, jobs, ttl=86400):
         signature = self.fingerprint(key + json.dumps(query, sort_keys=True, ensure_ascii=True))
         with connection(self.path, self.database_url) as db:
             db.execute('DELETE FROM query_cache WHERE expires<=?', (self.clock(),))
             db.execute('INSERT INTO query_cache VALUES(?,?,?) ON CONFLICT(signature) DO UPDATE SET payload=excluded.payload,expires=excluded.expires',
-                       (signature, json.dumps(jobs), self.clock() + 86400))
+                       (signature, json.dumps(jobs), self.clock() + ttl))

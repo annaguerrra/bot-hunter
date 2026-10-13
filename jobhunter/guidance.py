@@ -9,6 +9,9 @@ def guidance(filters, companies):
                             BY_CODE.get(filters.get('country'), {}).get('english')) if part) or 'Worldwide'
     keywords = ' OR '.join(terms)
     return {'links': [
+        {'name': 'Central de Carreira · perfil, currículo e entrevistas', 'url': '/#career'},
+        {'name': 'Empresas · catálogo e páginas oficiais', 'url': '/#companies'},
+        {'name': 'Histórico · rever oportunidades encontradas', 'url': '/#history'},
         {'name': 'LinkedIn · procurar vagas', 'url': 'https://www.linkedin.com/jobs/search/?' + urlencode({'keywords': keywords, 'location': destination})},
         {'name': 'Google Empregos · explorar diretamente', 'url': 'https://www.google.com/search?' + urlencode({'q': keywords + ' jobs ' + destination, 'udm': '8'})},
         {'name': 'Páginas de carreira · descobrir sites', 'url': 'https://www.google.com/search?' + urlencode({'q': keywords + ' careers ' + destination + ' -site:jooble.org'})},

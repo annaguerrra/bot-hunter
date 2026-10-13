@@ -211,7 +211,9 @@ class WebTests(unittest.TestCase):
         with patch.object(providers, "discover_company", return_value=company):
             response = self.client.post("/api/companies", json=company, headers=self.headers)
             self.assertEqual(response.status_code, 201)
-            self.assertEqual(self.client.post("/api/companies", json=company, headers=self.headers).status_code, 409)
+            duplicate = self.client.post("/api/companies", json=company, headers=self.headers)
+        self.assertEqual(duplicate.status_code, 200)
+        self.assertTrue(duplicate.json["existing"])
         identifier = response.json["id"]
         self.client.patch("/api/companies/" + str(identifier), json={"enabled": False}, headers=self.headers)
         registered = self.client.get("/api/config").json["companies"]

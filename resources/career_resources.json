@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "editorial_policy": "Material curado e resumido pelo Bot Hunter, com atribuicao e link para a fonte. Nao copiar artigos completos nem apresentar dicas como vagas.",
+  "resources": [
+    {
+      "id": "linkedin-profile",
+      "category": "linkedin",
+      "title": "Melhore seu perfil profissional",
+      "summary": "Revise foto, headline, resumo, experiencias, competencias e recomendacoes, sempre com informacoes reais.",
+      "action": "Compare seu titulo e resumo com os cargos que deseja buscar e destaque resultados comprovaveis.",
+      "source_name": "LinkedIn Help",
+      "source_url": "https://www.linkedin.com/help/linkedin/answer/a554351",
+      "locale": "pt-BR",
+      "tags": [
+        "linkedin",
+        "perfil",
+        "imagem profissional"
+      ],
+      "verified_at": "2026-10-12",
+      "source_locale": "en"
+    },
+    {
+      "id": "linkedin-alerts",
+      "category": "linkedin",
+      "title": "Ative alertas de vagas no LinkedIn",
+      "summary": "Crie alertas para combinacoes de cargo e localidade e escolha notificacoes por e-mail ou no aplicativo.",
+      "action": "Abra uma pesquisa no LinkedIn e ative o alerta diretamente na plataforma.",
+      "source_name": "LinkedIn Help",
+      "source_url": "https://www.linkedin.com/help/linkedin/answer/a511279",
+      "locale": "pt-BR",
+      "tags": [
+        "linkedin",
+        "vagas",
+        "alertas"
+      ],
+      "verified_at": "2026-10-12",
+      "source_locale": "en"
+    },
+    {
+      "id": "resume-results",
+      "category": "curriculo",
+      "title": "Descreva experiencias com resultados",
+      "summary": "Use verbos de acao, informacoes especificas e resultados mensuraveis quando forem reais.",
+      "action": "Reescreva uma experiencia com contexto, acao e resultado sem inventar indicadores.",
+      "source_name": "Harvard Career Services",
+      "source_url": "https://careerservices.fas.harvard.edu/resources/create-a-strong-resume/",
+      "locale": "pt-BR",
+      "tags": [
+        "curriculo",
+        "realizacoes",
+        "resultados"
+      ],
+      "verified_at": "2026-10-12",
+      "source_locale": "en"
+    },
+    {
+      "id": "resume-target",
+      "category": "curriculo",
+      "title": "Adapte o curriculo a vaga",
+      "summary": "Destaque competencias e experiencias relevantes para o cargo, mantendo fidelidade a trajetoria profissional.",
+      "action": "Escolha uma vaga, identifique cinco requisitos e indique quais experiencias suas os demonstram.",
+      "source_name": "Harvard Career Services",
+      "source_url": "https://careerservices.fas.harvard.edu/resources/create-a-strong-resume/",
+      "locale": "pt-BR",
+      "tags": [
+        "curriculo",
+        "candidatura"
+      ],
+      "verified_at": "2026-10-12",
+      "source_locale": "en"
+    },
+    {
+      "id": "interview-star",
+      "category": "entrevista",
+      "title": "Prepare respostas com o metodo STAR",
+      "summary": "Estruture experiencias reais em Situacao, Tarefa, Acao e Resultado para entrevistas comportamentais.",
+      "action": "Pratique uma situacao em que melhorou um processo ou resolveu um problema da equipe.",
+      "source_name": "MIT Career Advising",
+      "source_url": "https://capd.mit.edu/resources/interview-primer/",
+      "locale": "pt-BR",
+      "tags": [
+        "entrevista",
+        "STAR",
+        "comportamental"
+      ],
+      "verified_at": "2026-10-12",
+      "source_locale": "en"
+    },
+    {
+      "id": "interview-prep",
+      "category": "entrevista",
+      "title": "Prepare perguntas e pesquise a empresa",
+      "summary": "Entenda o cargo, a empresa e as competencias avaliadas antes da entrevista.",
+      "action": "Separe tres perguntas para o entrevistador e dois exemplos relevantes de sua experiencia.",
+      "source_name": "MIT Career Advising",
+      "source_url": "https://capd.mit.edu/resources/interview-primer/",
+      "locale": "pt-BR",
+      "tags": [
+        "entrevista",
+        "pesquisa",
+        "preparacao"
+      ],
+      "verified_at": "2026-10-12",
+      "source_locale": "en"
+    },
+    {
+      "id": "linkedin-photo",
+      "category": "linkedin",
+      "title": "Sua foto apresenta você",
+      "summary": "Uma foto recente, com rosto visível, luz suave e fundo simples ajuda a reconhecer você.",
+      "action": "Peça a alguém para fotografar você perto de uma janela. Escolha uma roupa habitual de trabalho e confira o recorte.",
+      "source_name": "LinkedIn Talent Blog",
+      "source_url": "https://www.linkedin.com/business/talent/blog/product-tips/tips-for-taking-professional-linkedin-profile-pictures",
+      "locale": "pt-BR",
+      "source_locale": "en",
+      "tags": [
+        "foto",
+        "imagem profissional"
+      ],
+      "verified_at": "2026-10-12"
+    },
+    {
+      "id": "linkedin-headline",
+      "category": "linkedin",
+      "title": "Dê clareza ao seu título e resumo",
+      "summary": "Apresente sua especialidade, conhecimentos reais e o tipo de oportunidade que busca.",
+      "action": "Escreva um título curto e dois parágrafos sobre sua trajetória. Inclua termos dos cargos desejados sem exagerar competências.",
+      "source_name": "LinkedIn Help",
+      "source_url": "https://www.linkedin.com/help/linkedin/answer/a554351",
+      "locale": "pt-BR",
+      "source_locale": "en",
+      "tags": [
+        "headline",
+        "resumo",
+        "produto",
+        "processos"
+      ],
+      "verified_at": "2026-10-12"
+    },
+    {
+      "id": "network-conversation",
+      "category": "networking",
+      "title": "Comece uma conversa profissional",
+      "summary": "Conversas informativas permitem conhecer a rotina e os caminhos de uma profissão. Respeite o tempo da outra pessoa.",
+      "action": "Escolha um contato, explique seu interesse e proponha uma conversa breve. Prepare duas perguntas e agradeça depois.",
+      "source_name": "MIT Career Advising",
+      "source_url": "https://capd.mit.edu/blog/2022/03/02/networking-primer-for-first-year-undergraduates/",
+      "locale": "pt-BR",
+      "source_locale": "en",
+      "tags": [
+        "networking",
+        "contatos",
+        "planejamento"
+      ],
+      "verified_at": "2026-10-12"
+    },
+    {
+      "id": "network-plan",
+      "category": "networking",
+      "title": "Organize contatos e próximas ações",
+      "summary": "Planejar quem deseja conhecer e anotar aprendizados ajuda a dar continuidade ao networking.",
+      "action": "Monte uma lista com empresa, contato, data da conversa e próximo passo. Priorize dois contatos para esta semana.",
+      "source_name": "MIT Career Advising",
+      "source_url": "https://capd.mit.edu/blog/2022/03/02/networking-primer-for-first-year-undergraduates/",
+      "locale": "pt-BR",
+      "source_locale": "en",
+      "tags": [
+        "planejamento",
+        "candidaturas",
+        "networking"
+      ],
+      "verified_at": "2026-10-12"
+    }
+  ]
+}

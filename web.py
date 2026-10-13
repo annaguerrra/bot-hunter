@@ -45,7 +45,10 @@ def validate_filters(body, companies):
         raise ValueError("O país não pertence à região selecionada.")
     if state and (not country or state not in {item["code"] for item in geo.states(country)}):
         raise ValueError("Selecione um estado ou província do país escolhido.")
-    sources = body.get("sources", ["companies"])
+    free = body.get('free_exploration', False)
+    if not isinstance(free, bool):
+        raise ValueError('A opção de exploração em empresas deve ser true ou false.')
+    sources = ['companies'] if free else body.get("sources", ["companies"])
     if sources == [] and body.get('auto_sources') is True:
         sources = ['jooble']
     if not isinstance(sources, list) or not sources or any(not isinstance(item, str) or item not in {"companies", "google", "jooble", "gemini"} for item in sources):
@@ -56,7 +59,7 @@ def validate_filters(body, companies):
     valid_ids = {company["id"] for company in companies if company["enabled"]}
     if any(item not in valid_ids for item in company_ids):
         raise ValueError("Uma das empresas selecionadas está desativada ou não existe.")
-    if "companies" in sources and not company_ids and body.get('auto_sources') is not True:
+    if "companies" in sources and not company_ids and (free or body.get('auto_sources') is not True):
         raise ValueError("Cadastre ou selecione uma empresa para consultar suas vagas.")
     try:
         pages = int(body.get("pages", 1))
@@ -86,7 +89,7 @@ def validate_filters(body, companies):
             "strict_title": body.get("strict_title", True), "remote": body.get("remote", False),
             "pages": pages, "excluded": main.split_terms(excluded), "profile": profile,
             "multilingual": body.get("multilingual", True), "salary_min": minimum, 'jooble_count': jooble_count,
-            'auto_sources': body.get('auto_sources', False)}
+            'auto_sources': False if free else body.get('auto_sources', False), 'free_exploration': free}
 
 
 def create_app(db_path=None):
@@ -162,7 +165,8 @@ def create_app(db_path=None):
         return jsonify(regions=[{"code": code, "name": name} for code, name in geo.REGIONS.items()],
                        countries=geo.COUNTRIES, companies=store.companies(g.user['id']), user=public_user(g.user),
                        preferences=g.user['preferences'],
-                       limits={'max_notify_jobs': MAX_NOTIFY_JOBS, 'telegram_batch_jobs': 1 if serverless else MAX_NOTIFY_JOBS},
+                       limits={'max_notify_jobs': MAX_NOTIFY_JOBS, 'telegram_batch_jobs': 1 if serverless else MAX_NOTIFY_JOBS,
+                               'company_search_limit': providers.company_search_limit(), 'company_registration_limit': 100},
                        jooble_countries=list(providers.jooble_keys()), jooble_markets=MARKETS,
                         integrations={"jooble": bool(providers.jooble_keys()), "google": configured("SERPAPI_API_KEY"), "gemini": configured("GEMINI_API_KEY") and (os.getenv('GEMINI_ENABLED', 'true').lower() == 'true' or auto_ai),
                                      "telegram": configured("TELEGRAM_BOT_TOKEN") and bool(contacts_for(g.user).get('telegram_chat_id')),
@@ -280,14 +284,22 @@ def create_app(db_path=None):
     def search_guidance():
         from jobhunter.guidance import guidance
         companies = store.companies(g.user['id'])
-        filters = validate_filters(request.get_json(silent=True), companies)
+        body = request.get_json(silent=True)
+        # Links e dicas independem de empresas cadastradas; validar não inicia busca.
+        filters = validate_filters({**body, 'sources': ['jooble'], 'free_exploration': False} if isinstance(body, dict) else body, companies)
         return jsonify(**guidance(filters, companies), searches=store.recent_searches(g.user['id']),
                        favorites_count=len(store.favorites(g.user['id'])))
 
     @app.post('/api/companies/discover')
     def discover_companies():
         from jobhunter.discovery import suggest_companies
-        filters = validate_filters(request.get_json(silent=True), store.companies(g.user['id']))
+        body = request.get_json(silent=True) or {}
+        filters = validate_filters(body, store.companies(g.user['id']))
+        offset = body.get('discovery_offset', 0)
+        use_gemini = body.get('use_gemini', False)
+        if type(offset) is not int or not 0 <= offset <= 1000 or not isinstance(use_gemini, bool):
+            raise ValueError('Opções de descoberta inválidas.')
+        use_gemini = use_gemini and not filters['free_exploration']
         if not store.rate_limit(f'discovery:{g.user["id"]}', 5, 3600):
             return jsonify(error='Limite de cinco descobertas de empresas por hora atingido.'), 429
         if not search_slots.acquire(blocking=False):
@@ -295,7 +307,7 @@ def create_app(db_path=None):
         try:
             from jobhunter.gemini import usage_scope
             with http.deadline(240 if serverless else None), usage_scope(usage, g.user['id']):
-                result = suggest_companies(filters, store.companies(g.user['id']))
+                result = suggest_companies(filters, store.companies(g.user['id']), offset=offset, usage=usage, use_gemini=use_gemini)
             identifier = uuid.uuid4().hex
             store.start_search(identifier, filters, g.user['id'])
             store.finish_search(identifier, result, user_id=g.user['id'])
@@ -320,14 +332,59 @@ def create_app(db_path=None):
         name, url = body.get("name", ""), body.get("url", "")
         if not isinstance(name, str) or not 1 <= len(name.strip()) <= 80 or not isinstance(url, str) or len(url) > 1000:
             raise ValueError("Informe o nome da empresa e sua página de carreiras.")
-        if len(store.companies(g.user['id'])) >= 30:
-            raise ValueError('O limite é de 30 empresas por usuário.')
         try:
             company = providers.discover_company(name.strip(), url)
         except (providers.requests.RequestException, OSError):
             raise ValueError("Não foi possível acessar esse site. Confira a URL da página de carreiras.") from None
-        identifier = store.add_company(company, g.user['id'])
-        return jsonify(id=identifier, **company), 201
+        result = store.add_companies([company], g.user['id'])
+        return jsonify(id=result['ids'][0], existing=not bool(result['added']), **company), 201 if result['added'] else 200
+
+    @app.get('/api/companies/catalog')
+    def company_catalog():
+        from jobhunter.company_catalog import catalog_page, AREAS, CATALOG_PROVIDERS
+        try:
+            offset = int(request.args.get('offset', '0'))
+        except ValueError:
+            raise ValueError('Página inválida.') from None
+        q, provider, area = (request.args.get(key, '') for key in ('q', 'provider', 'area'))
+        country, region, geography = (request.args.get(key, '') for key in ('country', 'region', 'geography'))
+        profile = request.args.get('profile', 'both')
+        if (not 0 <= offset <= 1000 or len(q) > 100 or provider and provider not in CATALOG_PROVIDERS | {'website'}
+                or area and area not in AREAS or country and country not in geo.BY_CODE
+                or region and region not in geo.REGIONS or geography not in {'', 'international'}
+                or profile not in {'both', 'production', 'product', 'custom'}):
+            raise ValueError('Filtros do catálogo inválidos.')
+        return jsonify(**catalog_page(store.companies(g.user['id']), q=q, provider=provider, area=area,
+                                     country=country, region=region, geography=geography, profile=profile, offset=offset))
+
+    @app.post('/api/companies/catalog')
+    def add_catalog_companies():
+        from jobhunter.company_catalog import suggestions
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            raise ValueError('Selecione empresas do catálogo.')
+        identifiers = body.get('ids')
+        if not isinstance(identifiers, list) or not 1 <= len(identifiers) <= 20 or any(not isinstance(item, str) for item in identifiers):
+            raise ValueError('Selecione de 1 a 20 empresas do catálogo.')
+        known = {item['catalog_id']: item for item in suggestions()}
+        if any(item not in known or known[item]['status'] != 'validated' or known[item]['provider'] not in providers.COMPANY_PROVIDERS for item in identifiers):
+            raise ValueError('Somente integrações validadas podem entrar no radar pelo catálogo.')
+        result = store.add_companies([known[item] for item in dict.fromkeys(identifiers)], g.user['id'])
+        return jsonify(**result)
+
+    @app.get('/api/career')
+    def career_resources():
+        from jobhunter.career_resources import list_resources, CHECKLIST, QUESTIONS
+        category, q, profile = (request.args.get(key, '') for key in ('category', 'q', 'profile'))
+        return jsonify(resources=list_resources(category, q, profile), checklist=CHECKLIST, questions=QUESTIONS,
+                       progress=store.career_progress(g.user['id']))
+
+    @app.put('/api/career/progress')
+    def career_progress():
+        from jobhunter.career_resources import validate_progress
+        progress = validate_progress(request.get_json(silent=True))
+        store.save_career_progress(g.user['id'], progress)
+        return jsonify(ok=True)
 
     @app.post("/api/integrations/jooble")
     def jooble_key():

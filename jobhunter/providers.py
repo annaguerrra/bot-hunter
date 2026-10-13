@@ -99,6 +99,10 @@ def detect_provider(url):
         return ("greenhouse_eu" if ".eu." in host else "greenhouse"), path[0]
     if host in {"jobs.lever.co", "jobs.eu.lever.co"} and path:
         return ("lever_eu" if ".eu." in host else "lever"), path[0]
+    if host == 'jobs.ashbyhq.com' and path:
+        if not re.fullmatch(r'[A-Za-z0-9._-]{1,120}', path[0]):
+            raise ValueError('Identificador Ashby inválido.')
+        return 'ashby', path[0]
     return "website", ""
 
 
@@ -230,6 +234,91 @@ def lever(company, filters):
         if len(data) < 100:
             return jobs, []
     return jobs, ["Consulta limitada às páginas selecionadas."]
+
+
+def ashby_salary(compensation):
+    """Remuneração base publicada; bônus e participação nunca contam como salário."""
+    if not isinstance(compensation, dict):
+        return {}
+    components = compensation.get('summaryComponents', [])
+    if not isinstance(components, list):
+        return {}
+    salaries = [item for item in components if isinstance(item, dict) and item.get('compensationType') == 'Salary' and item.get('minValue') is not None]
+    if len(salaries) != 1:
+        # Faixas para localidades distintas não identificadas precisam de análise humana.
+        return {}
+    item = salaries[0]
+    if re.search(r'\b(estimated|estimate|estimado)\b', matching.normalize(str(item.get('summary', '')) + ' ' + str(compensation.get('compensationTierSummary', '')))):
+        return {}
+    period = {'1 YEAR': 'YEAR', '1 MONTH': 'MONTH', '1 WEEK': 'WEEK', '1 HOUR': 'HOUR'}.get(item.get('interval'), '')
+    return {'min': item['minValue'], 'max': item.get('maxValue'), 'currency': item.get('currencyCode', ''), 'period': period}
+
+
+def ashby(company, filters):
+    tenant = company['identifier']
+    if not re.fullmatch(r'[A-Za-z0-9._-]{1,120}', tenant):
+        raise ValueError('Identificador Ashby inválido.')
+    data = public_json(f'https://api.ashbyhq.com/posting-api/job-board/{tenant}', {'includeCompensation': 'true'})
+    if not isinstance(data, dict) or not isinstance(data.get('jobs'), list):
+        raise ValueError('Resposta Ashby sem lista de anúncios.')
+    jobs = []
+    for item in data['jobs']:
+        http.checkpoint()
+        if not isinstance(item, dict) or item.get('isListed') is not True:
+            continue
+        link = safe_link(item.get('applyUrl')) or safe_link(item.get('jobUrl'))
+        if not link or not isinstance(item.get('title'), str):
+            continue
+        address = item.get('address')
+        loc = address.get('postalAddress', {}) if isinstance(address, dict) else {}
+        pay = ashby_salary(item.get('compensation'))
+        # Cada localidade real ganha sua própria identidade e passa pelos filtros comuns.
+        locations = [(item.get('location', ''), loc)]
+        secondary = item.get('secondaryLocations') or []
+        for extra in secondary if isinstance(secondary, list) else []:
+            if isinstance(extra, dict) and isinstance(extra.get('address'), dict):
+                locations.append((extra.get('location', ''), extra['address']))
+        for label, address in locations:
+            if not isinstance(address, dict):
+                address = {}
+            location = label or ', '.join(str(address.get(key) or '') for key in ('addressLocality', 'addressRegion', 'addressCountry')).strip(', ')
+            jobs.append(make_job(item['title'], company['name'], location, link, company['name'],
+                                country=address.get('addressCountry', ''), city=address.get('addressLocality', ''), state=address.get('addressRegion', ''),
+                                remote=item.get('isRemote') is True or item.get('workplaceType') == 'Remote',
+                                employment=item.get('employmentType', ''), updated=item.get('publishedAt', ''),
+                                description=item.get('descriptionPlain') or item.get('descriptionHtml', ''),
+                                salary_data=pay, salary=salary.salary_label(pay)))
+    return jobs, ['Board Ashby consultado uma vez; cargos e localidades são filtrados no Bot Hunter. Remoto não implica contratação em qualquer país.']
+
+
+def company_search_limit():
+    try:
+        return min(20, max(1, int(os.getenv('COMPANY_SEARCH_LIMIT', '10'))))
+    except ValueError:
+        return 10
+
+
+def fetch_company_jobs(company, filters, usage=None):
+    """Cache público de 12 horas, sem gastar cotas dos agregadores ou da IA."""
+    adapter = COMPANY_PROVIDERS[company['provider']]
+    query = {'version': 1, 'provider': company['provider'], 'identifier': company.get('identifier', ''), 'url': company.get('url', '')}
+    if company['provider'] not in {'ashby', 'greenhouse', 'greenhouse_eu'}:
+        query.update({key: filters.get(key) for key in ('keywords', 'pages', 'country', 'city', 'remote')})
+    if company['provider'] == 'smartrecruiters':
+        query.update({key: filters.get(key) for key in ('profile', 'state', 'strict_title', 'excluded')})
+    query['name'] = company['name']
+    key = 'public-company-board'
+    cached = usage.cached(key, query) if usage else None
+    if cached is not None:
+        return cached['jobs'], cached['notes'] + ['Resultados reaproveitados do cache de 12 horas; nenhuma nova consulta ao ATS.']
+    if filters.get('_cache_only'):
+        raise NeedsConfiguration('Não há resultados em cache para esta empresa.')
+    jobs, notes = adapter(company, filters)
+    jobs, details = enrich_company_jobs(company, jobs, filters)
+    notes += details
+    if usage:
+        usage.remember(key, query, {'jobs': jobs, 'notes': notes}, ttl=43200)
+    return jobs, notes + ['Nova consulta ao portal público; sem uso de Jooble, SerpAPI ou Gemini nesta fonte.']
 
 
 def jobposting_nodes(value):
@@ -482,7 +571,7 @@ def google_jobs(filters, usage=None, user_id=0):
 
 
 COMPANY_PROVIDERS = {"smartrecruiters": smartrecruiters, "greenhouse": greenhouse, "greenhouse_eu": greenhouse,
-                     "lever": lever, "lever_eu": lever, "website": website}
+                     "lever": lever, "lever_eu": lever, 'ashby': ashby, "website": website}
 
 
 def enrich_company_jobs(company, jobs, filters):
@@ -529,6 +618,9 @@ def enrich_company_jobs(company, jobs, filters):
 
 def run_search(filters, companies, usage=None, user_id=0):
     from . import gemini
+    if filters.get('free_exploration'):
+        # Preferência explícita prevalece sobre fallback e avaliação por IA.
+        filters = {**filters, 'sources': ['companies'], 'auto_sources': False, '_skip_ai_ranking': True}
     with gemini.usage_scope(usage, user_id):
         if usage and filters.get('auto_sources') and os.getenv('AUTO_SOURCE_ROUTING', 'true').lower() == 'true':
             from .automatic import search
@@ -538,9 +630,13 @@ def run_search(filters, companies, usage=None, user_id=0):
 
 def _run_search(filters, companies, usage=None, user_id=0):
     providers = []
+    skipped_companies = 0
     if "companies" in filters["sources"]:
+        by_id = {company['id']: company for company in companies if company['enabled']}
+        selected_companies = [by_id[identifier] for identifier in dict.fromkeys(filters['company_ids']) if identifier in by_id]
+        skipped_companies = max(0, len(selected_companies) - company_search_limit())
         providers.extend((company["name"], COMPANY_PROVIDERS[company["provider"]], company)
-                         for company in companies if company["enabled"] and company["id"] in filters["company_ids"])
+                         for company in selected_companies[:company_search_limit()])
     if "google" in filters["sources"]:
         providers.append(("Google Empregos", google_jobs, None))
     if "jooble" in filters["sources"]:
@@ -570,10 +666,7 @@ def _run_search(filters, companies, usage=None, user_id=0):
             elif name == 'Google Empregos':
                 found, notes = fetch(source_filters, usage=usage, user_id=user_id) if usage else fetch(source_filters)
             else:
-                found, notes = fetch(company, source_filters) if company else fetch(source_filters)
-                if company:
-                    found, detail_notes = enrich_company_jobs(company, found, filters)
-                    notes += detail_notes
+                found, notes = fetch_company_jobs(company, source_filters, usage) if company else fetch(source_filters)
             accepted, review_count, below_count = 0, 0, 0
             source_seen = set()
             for job in found:
@@ -632,6 +725,9 @@ def _run_search(filters, companies, usage=None, user_id=0):
             report.append({"name": name, "status": "pending" if not configured or configured.startswith("COLE_") else "error",
                            "received": 0, "matched": 0, "notes": [note]})
     candidates = list(jobs.values())
+    if skipped_companies:
+        report.append({'name': 'Empresas selecionadas', 'status': 'limited', 'received': 0, 'matched': 0,
+                       'notes': [f'{skipped_companies} empresas selecionadas não foram consultadas. O limite desta execução é {company_search_limit()}; selecione outras empresas para continuar.']})
     if not filters.get('_skip_ai_ranking') and "gemini" in filters["sources"] and candidates and os.getenv('GEMINI_ENABLED', 'true').lower() == 'true' and os.getenv("GEMINI_API_KEY", "").strip() and not os.getenv("GEMINI_API_KEY", "").startswith("COLE_"):
         try:
             from . import gemini

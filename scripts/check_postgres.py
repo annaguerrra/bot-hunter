@@ -72,6 +72,22 @@ def check(url):
                 assert cloud.settings()['GEMINI_API_KEY'] == 'qa-private-test-key'
                 assert cloud.settings()['JOOBLE_API_KEY_BR'] == 'qa-key'
                 assert cloud.user(owner)['contacts']['email_to'] == 'owner@example.org'
+                # Catálogo opcional não refaz seeds; lote idempotente preserva pausas.
+                from jobhunter.company_catalog import suggestions
+                candidate = next(item for item in suggestions() if item['name'] == 'SGS')
+                imported = cloud.add_companies([candidate, candidate], owner)
+                assert imported['added'] == 1 and imported['existing'] == 1
+                company_id = imported['ids'][0]
+                cloud.update_company(company_id, enabled=False, user_id=owner)
+                assert cloud.add_company(candidate, owner) == company_id
+                assert not next(item for item in cloud.companies(owner) if item['id'] == company_id)['enabled']
+                assert all(item['name'] != 'SGS' for item in cloud.companies(member))
+                cloud.save_career_progress(owner, {'checklist': ['photo'], 'star': {'task': 'QA example'}})
+                assert Store(cloud.path, isolated).career_progress(owner)['checklist'] == ['photo']
+                assert not cloud.career_progress(member)
+                cloud.update_company(company_id, remove=True, user_id=owner)
+                Store(cloud.path, isolated)
+                assert all(item['name'] != 'SGS' for item in cloud.companies(owner))
                 cloud_budget = UsageBudget(cloud.path, isolated)
                 assert cloud_budget.snapshot(owner, {'BR': 'qa-key'})['used_today'] == 1
                 try:

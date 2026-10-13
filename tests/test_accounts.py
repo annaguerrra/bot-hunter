@@ -216,12 +216,14 @@ class MigrationAndDiscoveryTests(unittest.TestCase):
             return {'name': name, 'url': url, 'provider': provider, 'identifier': tenant}
         invented = {'companies': [{'name': 'Invented', 'url': 'https://evil.example/jobs'}]}
         with patch.dict(os.environ, {'GEMINI_API_KEY': 'fake', 'GEMINI_ENABLED': 'true'}), patch.object(gemini, 'generate', return_value=(invented, {})), patch.object(providers, 'discover_company', side_effect=identify) as fetch, patch.dict(providers.COMPANY_PROVIDERS, {'smartrecruiters': lambda c, f: ([job], [])}):
-            result = discovery.suggest_companies(filters, [])
+            with patch.object(providers, 'fetch_company_jobs', return_value=([job], [])):
+                result = discovery.suggest_companies(filters, [], use_gemini=True)
         self.assertEqual(len(result['companies']), 5)
         self.assertTrue(all('Product Engineer' == c['evidence'][0]['title'] for c in result['companies']))
         self.assertNotIn('https://evil.example/jobs', [call.args[1] for call in fetch.call_args_list])
         with patch.dict(os.environ, {'GEMINI_API_KEY': 'fake', 'GEMINI_ENABLED': 'true'}), patch.object(gemini, 'generate', side_effect=gemini.GeminiError('HTTP 429')), patch.object(providers, 'discover_company', side_effect=identify), patch.dict(providers.COMPANY_PROVIDERS, {'smartrecruiters': lambda c, f: ([job], [])}):
-            result = discovery.suggest_companies({**filters, 'country': 'BR'}, [])
+            with patch.object(providers, 'fetch_company_jobs', return_value=([job], [])):
+                result = discovery.suggest_companies({**filters, 'country': 'BR'}, [], use_gemini=True)
         self.assertEqual(result['companies'], [])
         self.assertIn('429', result['notes'][0])
 

@@ -108,9 +108,34 @@ class Store:
             return [dict(row) for row in db.execute('SELECT * FROM companies WHERE user_id=? ORDER BY name', (user_id,))]
 
     def add_company(self, company, user_id=0):
+        return self.add_companies([company], user_id)['ids'][0]
+
+    def add_companies(self, companies, user_id=0):
+        # A transação serializa cadastros concorrentes em SQLite e no Neon.
+        # Empresas já cadastradas, inclusive pausadas, mantêm todos os seus dados.
         with self.connection() as db:
-            return insert_id(db, 'INSERT INTO companies(user_id,name,url,provider,identifier) VALUES(?,?,?,?,?)',
-                             (user_id, *(company[key] for key in ('name', 'url', 'provider', 'identifier'))))
+            db.execute('BEGIN IMMEDIATE')
+            count = db.execute('SELECT COUNT(*) AS count FROM companies WHERE user_id=?', (user_id,)).fetchone()['count']
+            ids, added = [], 0
+            for company in companies:
+                existing = db.execute('SELECT id FROM companies WHERE user_id=? AND (url=? OR (provider=? AND identifier<>? AND LOWER(identifier)=LOWER(?)))',
+                                      (user_id, company['url'], company['provider'], '', company['identifier'])).fetchone()
+                if existing:
+                    ids.append(existing['id'])
+                    continue
+                if count + added >= 100:
+                    raise ValueError('O limite é de 100 empresas cadastradas por usuário; nenhuma alteração deste lote foi salva.')
+                ids.append(insert_id(db, 'INSERT INTO companies(user_id,name,url,provider,identifier) VALUES(?,?,?,?,?)',
+                                     (user_id, *(company[key] for key in ('name', 'url', 'provider', 'identifier')))))
+                added += 1
+            return {'ids': ids, 'added': added, 'existing': len(ids) - added}
+
+    def career_progress(self, user_id):
+        return json.loads(self.setting(f'career-progress:{user_id}', '{}'))
+
+    def save_career_progress(self, user_id, progress):
+        # Conteúdo escrito pela pessoa, isolado por conta, sem envio a IA.
+        self.set_setting(f'career-progress:{user_id}', json.dumps(progress, ensure_ascii=False))
 
     def update_company(self, identifier, enabled=None, remove=False, user_id=0):
         with self.connection() as db:
