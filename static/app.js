@@ -9,7 +9,7 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":
 const icon = (name) => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const countryName = (code) => state.config.countries.find((country) => country.code === code)?.name || "Mundo todo";
 const regionName = (code) => state.config.regions.find((region) => region.code === code)?.name || "Mundo todo";
-const providerName = (provider) => ({ smartrecruiters: "SmartRecruiters", greenhouse: "Greenhouse", greenhouse_eu: "Greenhouse Europa", lever: "Lever", lever_eu: "Lever Europa", website: "Página pública · compatibilidade variável" }[provider] || provider);
+const providerName = (provider) => ({ jooble: 'Jooble', google: 'Google Empregos', companies: 'Empresas', gemini: 'Gemini', smartrecruiters: "SmartRecruiters", greenhouse: "Greenhouse", greenhouse_eu: "Greenhouse Europa", lever: "Lever", lever_eu: "Lever Europa", website: "Página pública · compatibilidade variável" }[provider] || provider);
 let toastTimer;
 
 function toast(message, error = false) {
@@ -501,8 +501,8 @@ async function refreshUsage() {
   state.usage = await api('/api/usage');
   const usage = state.usage;
   $('#usage-status').textContent = `${usage.used_today} consultas usadas hoje · ${usage.remaining_today} disponíveis agora · limite pessoal de ${usage.limits.user_daily}/dia.`;
-  $('#google-usage-status').textContent = `Google Empregos: ${usage.google.used_today}/${usage.google.daily_limit} hoje · ${usage.google.used_month}/${usage.google.monthly_limit} neste mês · ${usage.google.remaining_today} disponíveis hoje.`;
-  $('#gemini-personal-status').textContent = `Gemini: ${usage.gemini.used_today}/${usage.gemini.user_daily} chamadas pessoais hoje · ${usage.gemini.remaining_today} disponíveis dentro das cotas compartilhadas. ${usage.gemini.auto_enabled ? 'Assistência automática autorizada.' : 'Assistência automática desativada.'}`;
+  $('#google-usage-status').textContent = `Google Empregos: ${usage.google.used_today}/${usage.google.daily_limit} hoje · ${usage.google.used_month}/${usage.google.monthly_limit} neste mês · ${usage.google.remaining_today} disponíveis pela cota. ${usage.google.blocked_until * 1000 > Date.now() ? 'Em pausa após limitar chamadas; cache e alternativas continuam disponíveis.' : ''}`;
+  $('#gemini-personal-status').textContent = `Gemini: ${usage.gemini.used_today}/${usage.gemini.user_daily} chamadas pessoais hoje · ${usage.gemini.remaining_today} disponíveis dentro das cotas compartilhadas. ${usage.gemini.auto_enabled ? 'Assistência automática autorizada.' : 'Assistência automática desativada.'} ${usage.gemini.blocked ? 'Em pausa ou sem saldo; atividades sem IA continuam disponíveis.' : ''}`;
   $('#gemini-usage-status').textContent = `Gemini: ${usage.gemini.used_today}/${usage.gemini.user_daily} por pessoa hoje · ${usage.gemini.global_used_today}/${usage.gemini.global_daily} compartilhadas hoje · ${usage.gemini.used_month}/${usage.gemini.monthly} no mês. ${usage.gemini.blocked ? 'Em pausa; alternativas sem IA continuam disponíveis.' : 'Saldo disponível dentro da proteção.'}`;
   $('#usage-reset').textContent = 'O limite diário renova à meia-noite de São Paulo. Respostas iguais são reaproveitadas por 24 horas. As 500 consultas por chave não renovam diariamente.';
   $('#usage-summary').classList.toggle('budget-exhausted', usage.blocked);
