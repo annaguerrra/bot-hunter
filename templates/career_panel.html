@@ -1,0 +1,19 @@
+<section id="view-career" class="view hidden">
+  <div class="page-heading"><span class="eyebrow">PREPARE SUA PRÓXIMA OPORTUNIDADE</span><h1>Central de Carreira</h1><p>Cuide do perfil, do currículo e das entrevistas com ações práticas e fontes confiáveis.</p></div>
+  <div class="surface career-intro"><div><h2>Um próximo passo por vez</h2><p>Orientações em português, resumidas pelo Bot Hunter, com links para os conteúdos originais. Recursos disponíveis mesmo quando suas cotas acabam.</p></div><span class="tag source">Sem IA ou APIs de busca</span></div>
+  <div class="development-filters career-filters"><label>O que deseja melhorar?<select id="career-category"><option value="">Todos os temas</option><option value="linkedin">LinkedIn e imagem profissional</option><option value="curriculo">Currículo</option><option value="entrevista">Entrevistas</option><option value="networking">Networking e planejamento</option></select></label><label>Pesquisar conteúdo<input id="career-query" type="search" maxlength="100" placeholder="Ex.: foto, currículo, STAR"></label></div>
+  <p id="career-count" class="field-help" role="status"></p>
+  <div class="career-layout"><div id="career-resources" class="development-grid"></div><div class="career-tools">
+    <form id="career-progress-form" class="surface">
+      <h2>Meu perfil no LinkedIn</h2><p class="field-help">Revisão manual do seu perfil. O Bot Hunter não acessa sua conta no LinkedIn.</p><p id="career-checklist-count" role="status"></p><div id="career-checklist"></div>
+      <details class="star-practice" open><summary>Praticar uma resposta STAR</summary><p class="field-help">Use uma experiência real. Seu rascunho fica salvo apenas na sua conta e não é enviado a IA.</p>
+        <label for="star-question">Pergunta<select id="star-question"></select></label>
+        <label>S · Situação<textarea id="star-situation" rows="3" maxlength="3000" placeholder="Qual era o contexto?"></textarea></label>
+        <label>T · Tarefa<textarea id="star-task" rows="3" maxlength="3000" placeholder="Qual era sua responsabilidade?"></textarea></label>
+        <label>A · Ação<textarea id="star-action" rows="3" maxlength="3000" placeholder="O que você fez?"></textarea></label>
+        <label>R · Resultado<textarea id="star-result" rows="3" maxlength="3000" placeholder="Qual foi o resultado? Use números somente quando forem reais."></textarea></label>
+      </details>
+      <button type="submit" class="button primary">Salvar meu progresso e rascunho</button><p id="career-save-status" class="field-help" role="status">Salve antes de sair ou trocar a pergunta.</p>
+    </form>
+  </div></div>
+</section>

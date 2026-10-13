@@ -10,8 +10,10 @@
   <link rel="stylesheet" href="/static/app.css">
   <link rel="stylesheet" href="/static/account.css">
   <link rel="stylesheet" href="/static/layout.css">
+  <link rel="stylesheet" href="/static/development.css">
   <script src="/static/onboarding.js" defer></script>
   <script src="/static/app.js" defer></script>
+  <script src="/static/development.js" defer></script>
 </head>
 <body>
 <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -40,6 +42,7 @@
     <a href="#companies" class="nav-link" data-view="companies"><svg><use href="#i-building"/></svg>Empresas<span id="company-count" class="nav-count">0</span></a>
     <a href="#favorites" class="nav-link" data-view="favorites"><svg><use href="#i-heart"/></svg>Vagas salvas<span id="favorite-count" class="nav-count">0</span></a>
     <a href="#history" class="nav-link" data-view="history"><svg><use href="#i-clock"/></svg>Histórico</a>
+    <a href="#career" class="nav-link" data-view="career"><svg><use href="#i-briefcase"/></svg>Central de Carreira</a>
     <a href="#integrations" class="nav-link" data-view="integrations"><svg><use href="#i-settings"/></svg>Integrações</a>
     <a href="#profile" class="nav-link" data-view="profile"><svg><use href="#i-briefcase"/></svg>Meu perfil</a>
   </nav>
@@ -68,9 +71,12 @@
           <label for="state">Estado / província</label><select id="state" disabled><option value="">Selecione um país primeiro</option></select>
           <label for="city">Cidade <span class="optional">opcional</span></label><input id="city" placeholder="Ex.: Curitiba, Stuttgart, Shanghai" maxlength="100">
           <div class="filter-divider"></div><span class="field-label">Fontes da busca</span>
+          <label class="checkbox-label"><input id="free-exploration" type="checkbox"><span>Somente empresas · sem gastar cotas de busca</span></label>
+          <p class="field-help">Consulta os portais públicos selecionados, com cache de 12 horas. Este modo usa apenas empresas, mesmo quando outras fontes estão marcadas.</p>
           <label class="checkbox-label"><input id="auto-sources" type="checkbox" checked><span>Escolher alternativas automaticamente</span></label>
           <p class="field-help">As fontes marcadas têm prioridade. Se faltarem resultados, o radar usa alternativas dentro das cotas e organiza próximos passos.</p>
           <label class="checkbox-label"><input type="checkbox" name="source" value="companies" checked><span>Empresas acompanhadas</span><span class="mini-label">DIRETO</span></label>
+          <details class="advanced company-selection"><summary>Escolher empresas desta busca</summary><div id="company-selection"></div><p class="field-help">Até <span id="company-search-limit">10</span> empresas por busca. O radar aceita até 100 cadastros; outras empresas selecionadas ficam para uma próxima busca.</p></details>
           <label class="checkbox-label"><input type="checkbox" name="source" value="jooble"><span>Jooble</span><span id="jooble-status" class="source-dot"></span></label>
           <label for="jooble-count">Vagas por consulta Jooble</label><select id="jooble-count"><option value="20">20 vagas</option><option value="50">50 vagas</option><option value="100" selected>100 vagas</option></select><p class="field-help">Coleta mais resultados na mesma consulta. O anúncio ainda precisa atender ao perfil e salário.</p>
           <label class="checkbox-label"><input type="checkbox" name="source" value="google"><span>Google Empregos</span><span id="google-status" class="source-dot"></span></label>
@@ -97,8 +103,9 @@
     </div>
   </section>
 
-  <section id="view-companies" class="view hidden"><div class="page-heading"><span class="eyebrow">SUAS PRÓXIMAS POSSIBILIDADES</span><h1>Empresas no seu radar.</h1><p>Cadastre uma página de carreiras e encontre vagas direto na fonte.</p></div>{% include 'discovery_panel.html' %}<div class="company-layout"><div><div id="companies-list" class="companies-list"></div></div><form id="company-form" class="surface add-company"><div class="form-icon"><svg><use href="#i-building"/></svg></div><h2>Adicionar uma empresa</h2><p>Vamos identificar a plataforma de vagas automaticamente.</p><label for="company-name">Nome da empresa</label><input id="company-name" placeholder="Ex.: Bosch" required maxlength="80"><label for="company-url">Página de carreiras</label><input id="company-url" type="url" placeholder="https://careers.empresa.com" required maxlength="1000"><button type="submit" class="button primary"><svg><use href="#i-plus"/></svg>Adicionar ao radar</button><p class="field-help">SmartRecruiters, Greenhouse e Lever têm integração direta. Outros sites são consultados por seus anúncios públicos estruturados; a compatibilidade varia por site.</p></form></div></section>
+  <section id="view-companies" class="view hidden"><div class="page-heading"><span class="eyebrow">SUAS PRÓXIMAS POSSIBILIDADES</span><h1>Empresas no seu radar.</h1><p>Cadastre uma página de carreiras e encontre vagas direto na fonte.</p></div>{% include 'discovery_panel.html' %}<div class="company-layout"><div><div id="companies-list" class="companies-list"></div></div><form id="company-form" class="surface add-company"><div class="form-icon"><svg><use href="#i-building"/></svg></div><h2>Adicionar uma empresa</h2><p>Vamos identificar a plataforma de vagas automaticamente.</p><label for="company-name">Nome da empresa</label><input id="company-name" placeholder="Ex.: Bosch" required maxlength="80"><label for="company-url">Página de carreiras</label><input id="company-url" type="url" placeholder="https://careers.empresa.com" required maxlength="1000"><button type="submit" class="button primary"><svg><use href="#i-plus"/></svg>Adicionar ao radar</button><p class="field-help">SmartRecruiters, Greenhouse, Lever e Ashby têm integração direta. Outros sites são consultados por seus anúncios públicos estruturados; a compatibilidade varia por site.</p></form></div></section>
 
+  {% include 'career_panel.html' %}
   <section id="view-favorites" class="view hidden"><div class="page-heading"><span class="eyebrow">GUARDE O QUE FAZ SENTIDO</span><h1>Seus próximos passos, salvos.</h1><p>As oportunidades que você quer olhar com mais calma.</p></div><div id="favorites-list" class="jobs-list"></div></section>
 
   <section id="view-history" class="view hidden"><div class="page-heading"><span class="eyebrow">SEU RADAR, AO LONGO DO TEMPO</span><h1>Histórico de oportunidades</h1><p>Confira resultados anteriores e reúna as vagas encontradas, sem gastar novas consultas.</p></div>

@@ -1,0 +1,54 @@
+/* Catálogo e carreira mantêm a linguagem visual do radar, inclusive no celular. */
+.development-heading,.development-toolbar,.development-card-heading,.career-intro { display:flex; gap:16px; align-items:center; justify-content:space-between; }
+.company-catalog { padding:24px; margin:24px 0; }
+.development-heading h2,.career-intro h2 { margin:6px 0 10px; font-size:21px; }
+.development-heading p,.career-intro p { margin:0; color:var(--muted); line-height:1.65; }
+.development-filters { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin:24px 0 16px; }
+.development-filters label { display:flex; flex-direction:column; gap:8px; font-size:12px; font-weight:600; }
+.development-filters input,.development-filters select { width:100%; min-width:0; }
+.development-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.development-card { display:flex; flex-direction:column; min-width:0; padding:22px; border:1px solid var(--line,#e0e8e4); border-radius:16px; background:#fff; }
+.development-card h3 { margin:0 0 12px; font-size:18px; }
+.development-card .tag { align-self:flex-start; }
+.development-card p { line-height:1.65; }
+.development-card .field-help { margin:8px 0; }
+.company-areas { margin:14px 0 4px; color:#4b655b; }
+.catalog-status { margin:8px 0 0; font-size:12px; font-weight:600; color:#19765b; }
+.development-card-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:auto; padding-top:18px; }
+.development-card-actions .button { padding:10px 12px; font-size:12px; }
+.catalog-check { display:flex; align-items:center; min-height:40px; padding:8px; }
+.catalog-check input { width:18px; height:18px; }
+.registered-heading { margin-bottom:16px; }
+.registered-heading h2 { font-size:19px; }
+.company-selection #company-selection { max-height:224px; overflow:auto; padding:8px 0; }
+.company-selection .checkbox-label { align-items:flex-start; font-size:12px; }
+.career-intro { padding:24px; margin-bottom:20px; }
+.career-filters { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.career-layout { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:24px; align-items:start; }
+.career-layout .development-grid { grid-template-columns:minmax(0,1fr); }
+.career-card h2 { font-size:20px; margin:12px 0 8px; }
+.career-card > p { color:#60746e; margin:0 0 16px; }
+.career-action { padding:16px; border-radius:12px; background:#f2f7f4; margin-top:auto; }
+.career-action strong { font-size:12px; color:#24795e; }
+.career-action p { margin:6px 0 0; font-size:13px; }
+.career-source { display:flex; flex-direction:column; gap:7px; margin-top:18px; font-size:12px; }
+.career-source small { color:#7d8c87; }
+.career-tools .surface { padding:24px; }
+.career-tools h2 { font-size:19px; margin:0 0 12px; }
+.career-tools .checkbox-label { align-items:flex-start; margin:12px 0; font-size:13px; }
+.career-tools input[type="checkbox"],.company-selection input[type="checkbox"] { flex:none; }
+.star-practice { margin:24px 0; border-top:1px solid #e3eae6; padding-top:20px; }
+.star-practice summary { cursor:pointer; font-weight:600; }
+.star-practice label { display:flex; flex-direction:column; gap:8px; margin-top:18px; font-size:13px; }
+.star-practice textarea,.star-practice select { width:100%; min-width:0; resize:vertical; }
+#career-progress-form > .button { width:100%; white-space:normal; }
+@media(min-width:1500px) { .career-layout .development-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:1100px) { .career-layout { grid-template-columns:minmax(0,1fr); } }
+@media(max-width:720px) {
+  .development-heading,.development-toolbar,.career-intro { flex-direction:column; align-items:stretch; }
+  .development-filters { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .development-grid { grid-template-columns:minmax(0,1fr); }
+  .company-catalog,.career-intro,.career-tools .surface { padding:20px; }
+  .development-card-actions .button { flex:1; }
+}
+@media(max-width:420px) { .development-filters { grid-template-columns:minmax(0,1fr); } .development-card { padding:18px; } }

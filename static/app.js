@@ -13,7 +13,7 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":
 const icon = (name) => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const countryName = (code) => state.config.countries.find((country) => country.code === code)?.name || "Mundo todo";
 const regionName = (code) => state.config.regions.find((region) => region.code === code)?.name || "Mundo todo";
-const providerName = (provider) => ({ jooble: 'Jooble', google: 'Google Empregos', companies: 'Empresas', gemini: 'Gemini', smartrecruiters: "SmartRecruiters", greenhouse: "Greenhouse", greenhouse_eu: "Greenhouse Europa", lever: "Lever", lever_eu: "Lever Europa", website: "Página pública · compatibilidade variável" }[provider] || provider);
+const providerName = (provider) => ({ jooble: 'Jooble', google: 'Google Empregos', companies: 'Empresas', gemini: 'Gemini', smartrecruiters: "SmartRecruiters", greenhouse: "Greenhouse", greenhouse_eu: "Greenhouse Europa", lever: "Lever", lever_eu: "Lever Europa", ashby: "Ashby", website: "Página pública · compatibilidade variável" }[provider] || provider);
 let toastTimer;
 
 function toast(message, error = false) {
@@ -74,10 +74,10 @@ async function loadStates(selected = "") {
 function filters() {
   return { keywords: $("#keywords").value, region: $("#region").value, country: $("#country").value,
     state: $("#state").value, city: $("#city").value, sources: $$('input[name="source"]:checked').map((input) => input.value),
-    company_ids: state.config.companies.filter((company) => company.enabled).map((company) => company.id),
+    company_ids: state.config.companies.filter((company) => company.enabled && (!state.companySelection || state.companySelection.has(company.id))).map((company) => company.id),
     strict_title: $("#strict-title").checked, remote: $("#remote-only").checked,
     excluded: $("#excluded").value, pages: Number($("#pages").value), profile: $("#profile").value,
-    salary_min: Number($("#salary-min").value), multilingual: $("#multilingual").checked, jooble_count: Number($('#jooble-count').value), auto_sources: $('#auto-sources').checked };
+    salary_min: Number($("#salary-min").value), multilingual: $("#multilingual").checked, jooble_count: Number($('#jooble-count').value), auto_sources: $('#auto-sources').checked, free_exploration: $('#free-exploration').checked };
 }
 
 function updateGoogleLink() {
@@ -117,8 +117,13 @@ async function refreshConfig() {
 }
 
 function renderCompanies() {
-  const companies = state.config.companies;
+  state.radarOffset = Math.min(state.radarOffset || 0, Math.max(0, Math.ceil(state.config.companies.length / 20) - 1) * 20);
+  const companies = state.config.companies.slice(state.radarOffset, state.radarOffset + 20);
   $("#companies-list").innerHTML = companies.length ? companies.map((company) => `<article class="company-card"><div class="company-card-top"><span class="company-monogram">${esc(company.name.slice(0, 2).toUpperCase())}</span><div><h3>${esc(company.name)}</h3><a href="${esc(company.url)}" target="_blank" rel="noopener noreferrer">${esc(company.url)} ${icon("external")}</a></div></div><div class="company-card-bottom"><span class="tag source">${esc(providerName(company.provider))}</span><label class="toggle-label"><input type="checkbox" data-company-toggle="${company.id}" ${company.enabled ? "checked" : ""}>${company.enabled ? "No radar" : "Pausada"}</label><button class="icon-button" data-company-remove="${company.id}" aria-label="Remover ${esc(company.name)}">${icon("trash")}</button></div></article>`).join("") : empty("Seu radar de empresas está vazio.", "Adicione uma página de carreiras para começar.", "building");
+  $('#radar-prev').disabled = !state.radarOffset;
+  $('#radar-next').disabled = state.radarOffset + 20 >= state.config.companies.length;
+  $('#radar-page').textContent = `${state.config.companies.length} empresas · ${Math.floor(state.radarOffset / 20) + 1}/${Math.max(1, Math.ceil(state.config.companies.length / 20))}`;
+  renderCompanySelection();
 }
 
 function renderIntegrations() {
@@ -332,12 +337,15 @@ async function restoreFilters(saved) {
   $('#jooble-count').value = String(saved.jooble_count || 100);
   $('#auto-sources').checked = state.config.automatic_enabled && (saved.auto_sources ?? true);
   $$('input[name="source"]').forEach((input) => input.checked = saved.sources.includes(input.value));
+  $('#free-exploration').checked = saved.free_exploration === true;
+  state.companySelection = Array.isArray(saved.company_ids) ? new Set(saved.company_ids) : null;
+  renderCompanySelection();
   updateGoogleLink();
 }
 
 async function navigate() {
   let view = location.hash.slice(1) || "explore";
-  if (!["explore", "companies", "favorites", "history", "integrations", "profile", "first-steps"].includes(view)) view = "explore";
+  if (!["explore", "companies", "favorites", "history", "integrations", "profile", "first-steps", "career"].includes(view)) view = "explore";
   $$(".view").forEach((section) => section.classList.toggle("hidden", section.id !== `view-${view}`));
   $("#jooble-settings").classList.toggle("hidden", view !== "integrations" || state.config.user.role !== 'admin');
   $("#gemini-settings").classList.toggle("hidden", view !== "integrations" || state.config.user.role !== 'admin');
@@ -352,6 +360,8 @@ async function navigate() {
   if (view === 'profile') await loadProfile();
   if (view === 'first-steps') await loadOnboarding();
   if (view === 'integrations' && state.config.user.role === 'admin') await loadEmailSettings();
+  if (view === 'companies') await loadCompanyCatalog(companyCatalog.offset);
+  if (view === 'career') { $('#page-name').textContent = 'Central de Carreira'; await loadCareer(); }
 }
 
 async function guarded(action) {
@@ -605,7 +615,7 @@ async function refreshUsage() {
 
 async function showGuidance(plan) {
   const result = plan?.activities ? {links: plan.activities, tips: plan.tips} : await api('/api/guidance', {method: 'POST', body: JSON.stringify(filters())});
-  $('#guidance-links').innerHTML = result.links.map((link) => `<a class="button" href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.name)} ↗</a>`).join('');
+  $('#guidance-links').innerHTML = result.links.map((link) => `<a class="button" href="${esc(link.url)}"${link.url.startsWith('/') ? '' : ' target="_blank" rel="noopener noreferrer"'}>${esc(link.name)} ↗</a>`).join('');
   $('#guidance-tips').innerHTML = result.tips.map((tip) => `<li>${esc(tip)}</li>`).join('');
   $('#guidance-panel').classList.remove('hidden');
 }
@@ -732,18 +742,22 @@ $('#password-form').addEventListener('submit', (event) => {
     $('#password-form').reset(); toast('Senha alterada. Suas outras sessões foram encerradas.');
   });
 });
-$('#discover-companies').addEventListener('click', () => guarded(async () => {
+async function discoverCompanyPage(offset = 0) {
   const button = $('#discover-companies'); button.disabled = true;
   $('#discovery-notes').textContent = 'Pesquisando páginas de carreira e verificando anúncios compatíveis…';
   try {
-    const result = await api('/api/companies/discover', {method:'POST',body:JSON.stringify(filters())});
+    const result = await api('/api/companies/discover', {method:'POST',body:JSON.stringify({...filters(), discovery_offset: offset, use_gemini: $('#discovery-use-gemini').checked})});
+    state.discoveryOffset = result.next_offset;
+    $('#discovery-more').classList.toggle('hidden', result.next_offset == null);
     state.discovery = result.companies;
-    $('#discovery-notes').innerHTML = result.notes.map((note) => `<p>${esc(note)}</p>`).join('');
-    $('#discovery-results').innerHTML = result.companies.length ? result.companies.map((company, index) => `<article class="company-card"><h3>${esc(company.name)}</h3><span class="tag source">${esc(company.origin)}</span><div class="discovery-evidence">${company.evidence.map((job) => `<a href="${esc(job.url)}" target="_blank" rel="noopener noreferrer">${esc(job.title)} · ${esc(job.location)} ↗</a>`).join('')}</div><p>${esc(company.note)}</p><button class="button" type="button" data-discovery-add="${index}" ${company.enabled ? 'disabled' : ''}>${company.enabled ? 'Já está no seu radar' : company.registered_id ? 'Ativar no meu radar' : 'Cadastrar no meu radar'}</button></article>`).join('') : '<p>Nenhuma nova empresa com vagas verificáveis foi encontrada para esses filtros. Tente ampliar os cargos ou locais.</p>';
+    $('#discovery-notes').innerHTML = `<p>${result.checked_count || 0} portais verificados nesta página. Cadastro de empresas não inicia buscas.</p>` + [...new Set(result.notes)].slice(0, 8).map((note) => `<p>${esc(note)}</p>`).join('');
+    $('#discovery-results').innerHTML = result.companies.length ? result.companies.map((company, index) => `<article class="company-card"><h3>${esc(company.name)}</h3><span class="tag source">${esc(company.origin)}</span><div class="discovery-evidence">${company.evidence.map((job) => `<a href="${esc(job.url)}" target="_blank" rel="noopener noreferrer">${esc(job.title)} · ${esc(job.location)} ↗</a>`).join('')}</div><p>${esc(company.note)} ${company.compatible_count || 0} anúncios compatíveis nesta consulta.</p><button class="button" type="button" data-discovery-add="${index}" ${company.enabled ? 'disabled' : ''}>${company.enabled ? 'Já está no seu radar' : company.registered_id ? 'Ativar no meu radar' : 'Cadastrar no meu radar'}</button></article>`).join('') : '<p>Nenhuma nova empresa com vagas verificáveis foi encontrada para esses filtros. Tente ampliar os cargos ou locais.</p>';
     $('#discovery-references').innerHTML = (result.research_sources || []).map((item) => `<p><a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.title)} ↗</a></p>`).join('');
     $('#discovery-grounding').innerHTML = result.search_suggestions ? `<iframe title="Sugestões da pesquisa Google" sandbox="allow-popups allow-popups-to-escape-sandbox" src="/api/search/${encodeURIComponent(result.id)}/grounding"></iframe>` : '';
   } finally { button.disabled = false; }
-}));
+}
+$('#discover-companies').addEventListener('click', () => guarded(() => discoverCompanyPage()));
+$('#discovery-more').addEventListener('click', () => guarded(() => discoverCompanyPage(state.discoveryOffset)));
 $('#discovery-results').addEventListener('click', (event) => {
   const button = event.target.closest('[data-discovery-add]');
   if (!button) return;

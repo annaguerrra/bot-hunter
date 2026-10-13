@@ -1,5 +1,23 @@
 <div class="surface discovery-panel">
-  <div class="discovery-actions"><div><span class="eyebrow">NOVOS CAMINHOS</span><h2>Encontre empresas para o seu perfil.</h2></div><button id="discover-companies" class="button primary" type="button">Descobrir empresas</button></div>
-  <p>Usamos os cargos e locais definidos em Explorar vagas. O Gemini pesquisa páginas de carreira; verificamos anúncios compatíveis antes de sugerir o cadastro. Se a IA estiver indisponível, consultamos o catálogo público.</p>
+  <div class="discovery-actions"><div><span class="eyebrow">NOVOS CAMINHOS</span><h2>Sugestões com vagas para seu perfil</h2></div><button id="discover-companies" class="button primary" type="button">Verificar sugestões</button></div>
+  <p>Verificamos até cinco portais por vez com os filtros de Explorar vagas. Sem Jooble, SerpAPI ou Gemini por padrão. Anúncios compatíveis ainda precisam passar pela verificação salarial.</p>
+  <label class="checkbox-label"><input id="discovery-use-gemini" type="checkbox">Também pesquisar novas empresas com Gemini (opcional, consome sua cota de IA)</label>
   <div id="discovery-notes" aria-live="polite"></div><div id="discovery-results" class="companies-list"></div><div id="discovery-references"></div><div id="discovery-grounding"></div>
+  <button id="discovery-more" class="button hidden" type="button">Verificar próximas empresas</button>
 </div>
+<section id="company-catalog" class="surface company-catalog">
+  <div class="development-heading"><div><span class="eyebrow">DESCUBRIR EMPRESAS</span><h2>Amplie seu radar direto na fonte</h2><p>Escolha empresas e adicione ao seu radar. Ver o catálogo ou cadastrar empresas não inicia buscas.</p></div><span class="tag source">Sem chaves adicionais</span></div>
+  <div class="development-filters">
+    <label>Nome ou área<input id="company-catalog-query" type="search" maxlength="100" placeholder="Ex.: qualidade, SGS"></label>
+    <label>Plataforma<select id="company-catalog-provider"><option value="">Todas</option><option value="smartrecruiters">SmartRecruiters</option><option value="greenhouse">Greenhouse</option><option value="lever">Lever</option><option value="ashby">Ashby</option><option value="website">Páginas oficiais</option></select></label>
+    <label>Área<select id="company-catalog-area"><option value="">Todas as áreas</option></select></label>
+    <label>País de interesse<select id="company-catalog-country"><option value="">Todos os países</option></select></label>
+    <label>Região<select id="company-catalog-region"><option value="">Todas as regiões</option></select></label>
+    <label>Abrangência<select id="company-catalog-geography"><option value="">Todas</option><option value="international">Internacional</option></select></label>
+  </div>
+  <p class="field-help">A abrangência orienta a descoberta de portais; não garante vaga atual no país. As contagens compatíveis só aparecem após uma consulta com seus filtros.</p>
+  <div class="development-toolbar"><p id="company-catalog-count" role="status"></p><button id="company-catalog-add" class="button primary" type="button" disabled>Adicionar selecionadas (0)</button></div>
+  <div id="company-catalog-list" class="development-grid"></div>
+  <div class="catalog-pagination"><button id="company-catalog-prev" class="button" disabled>Anterior</button><span id="company-catalog-page"></span><button id="company-catalog-next" class="button" disabled>Próxima</button></div>
+</section>
+<div class="development-toolbar registered-heading"><h2>Seu radar de empresas</h2><div class="catalog-pagination"><button id="radar-prev" class="button" disabled>Anterior</button><span id="radar-page"></span><button id="radar-next" class="button" disabled>Próxima</button></div></div>
