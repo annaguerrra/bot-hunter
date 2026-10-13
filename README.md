@@ -26,7 +26,9 @@ O inicializador cria o ambiente Python, instala dependências e abre http://127.
 
 Copie `.env.example` para `.env` somente se ainda não houver configuração. Preencha `DATABASE_URL` com a mesma conexão Neon usada no GitHub para acessar os dados compartilhados. Sem essa variável, a interface usa SQLite local. Nunca publique o arquivo `.env`, o banco ou backups.
 
-A primeira conta é administradora. Contas seguintes têm contatos, preferências, empresas, histórico e favoritos próprios. **Primeiros passos** apresenta um tour de 10 etapas, permite pausar e retomar e orienta e-mail, Telegram e filtros. O pai pode registrar seu próprio e-mail e vincular o Telegram pelo link pessoal do bot, ou informar o chat ID manualmente. Cada destinatário precisa iniciar uma conversa com o bot.
+A primeira conta é administradora. Contas seguintes têm contatos, preferências, empresas, histórico e favoritos próprios. **Primeiros passos** apresenta um tour de 10 etapas com dicas junto aos controles, sem desfoque ou modal; permite pausar e retomar e orienta e-mail, Telegram e filtros. O pai pode registrar seu próprio e-mail e vincular o Telegram pelo link pessoal do bot, ou informar o chat ID manualmente. Cada destinatário precisa iniciar uma conversa com o bot.
+
+**Histórico → Por busca** exibe prévias, contagens e todos os resultados de cada pesquisa ao expandir. **Histórico → Todas as vagas** reúne as oportunidades da própria conta em um catálogo deduplicado, com paginação e filtro de salário. As duas abas consultam apenas dados salvos, preservando as cotas; anúncios antigos devem ser conferidos no site original. A interface ajusta navegação, formulários e cartões para celular, tablet e computador. [Detalhes de contas e histórico](docs/accounts.md).
 
 ## Automação no GitHub
 
