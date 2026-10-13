@@ -8,6 +8,6 @@ O e-mail de login é diferente do destinatário de alertas. O serviço Gmail SMT
 
 Salve seus filtros para a automação usar seus cargos, região, país, estado, cidade e piso salarial. Termos personalizados permitem outros ramos profissionais. Gemini é opcional.
 
-Com DATABASE_URL, a interface e o Actions usam o Neon. Sem essa variável, a interface usa SQLite local e suas alterações não aparecem na automação. O Actions não disponibiliza uma página pública de login; abrir INICIAR.cmd continua sendo necessário para acessar a interface local.
+Com DATABASE_URL, a interface e o Actions usam o Neon. A interface pública fica no Vercel e pode ser compartilhada pelo domínio de produção; o Actions executa a automação. Sem essa variável, o desenvolvimento local usa SQLite e suas alterações não aparecem na automação. INICIAR.cmd é apenas a alternativa local. [Publicação](vercel.md).
 
 Chaves compartilhadas são privadas e acessíveis somente à administração. Alterações na interface ligada ao Neon ficam no banco; as Secrets do Actions prevalecem na automação, então atualize também as Secrets correspondentes. HUNTER_ALLOW_REGISTRATION=false no .env fecha novos cadastros; não bloqueia contas existentes. HUNTER_SETUP_TOKEN é opcional para proteger a criação da primeira conta numa instalação nova.

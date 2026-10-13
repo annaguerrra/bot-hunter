@@ -55,7 +55,9 @@ def setup():
     variables = {item['name'] for item in call('GET', '/variables?per_page=100')['variables']}
     defaults = {'GEMINI_ENABLED': 'false', 'SEND_EMAIL': 'true', 'SEND_TELEGRAM': 'true', 'SERPAPI_DAILY_LIMIT': '3',
                 'SERPAPI_MONTHLY_LIMIT': '250', 'JOB_PROFILE': 'both', 'MIN_SALARY_BRL': '7000', 'MAX_JOBS': '100',
-                'WEB_MAX_MARKET_QUERIES': '6', 'SMTP_HOST': 'smtp.gmail.com', 'SMTP_PORT': '465', 'HUNTER_ALLOW_REGISTRATION': 'true', 'CLOUD_ALERTS_ENABLED': 'true', 'JOB_COUNTRY': 'BR'}
+                'WEB_MAX_MARKET_QUERIES': '6', 'SMTP_HOST': 'smtp.gmail.com', 'SMTP_PORT': '465', 'HUNTER_ALLOW_REGISTRATION': 'true', 'CLOUD_ALERTS_ENABLED': 'true', 'JOB_COUNTRY': 'BR',
+                'AUTO_SOURCE_ROUTING': 'true', 'GEMINI_AUTO_FALLBACK': 'false', 'GEMINI_AUTO_MODEL': 'gemini-3.1-flash-lite',
+                'GEMINI_USER_DAILY_LIMIT': '2', 'GEMINI_GLOBAL_DAILY_LIMIT': '6', 'GEMINI_MONTHLY_LIMIT': '60', 'GEMINI_DAILY_TOKEN_BUDGET': '100000'}
     added = []
     for name, value in defaults.items():
         if name not in variables:

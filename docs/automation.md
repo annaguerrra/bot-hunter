@@ -9,7 +9,9 @@ O bot roda em um runner temporário do GitHub e encerra ao concluir. O Neon guar
 5. Execute Actions → Buscar vagas e enviar fila Gmail → Run workflow. Desmarque search para processar somente e-mails pendentes.
 6. O próximo agendamento ocorre num dia útil às 9h17 de Brasília. O GitHub pode atrasar esse início.
 
-Gmail usa SMTP SSL, porta 465, e senha de aplicativo. Cada pessoa precisa iniciar uma conversa com o bot Telegram para receber mensagens. Gemini fica desligado até GEMINI_ENABLED=true; não é requisito para enviar alertas.
+Gmail usa SMTP SSL, porta 465, e senha de aplicativo. Cada pessoa precisa iniciar uma conversa com o bot Telegram para receber mensagens. Gemini manual fica desligado até GEMINI_ENABLED=true; não é requisito para enviar alertas. A permissão de assistência automática é separada, configurada pela administração no Neon ou por GEMINI_AUTO_FALLBACK como padrão inicial.
+
+Contas sem preferência explícita de modo automático usam AUTO_SOURCE_ROUTING=true. Preferências com auto_sources=false continuam manuais. Site e Actions usam o mesmo seletor, cotas, pausas e cache Gemini no Neon. A rotina troca de fonte até encontrar oportunidades compatíveis; orientação e vagas anteriores ficam no resultado da busca, sem virar notificações. Cada execução reavalia recursos disponíveis; não agenda uma chamada extra quando a cota renova. [Detalhes da política](usage.md).
 
 ## Copiar uma instalação SQLite existente
 

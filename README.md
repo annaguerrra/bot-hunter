@@ -54,7 +54,7 @@ Cadastre em **Settings → Secrets and variables → Actions**. Os exemplos abai
 | `TELEGRAM_BOT_TOKEN` | Bot: `123456789:TOKEN_FICTICIO` |
 | `EMAIL_FROM` | Gmail remetente: `remetente@example.com` |
 | `EMAIL_APP_PASSWORD` | Senha de aplicativo Gmail: `SENHA_FICTICIA_16` |
-| `GEMINI_API_KEY` | Opcional; só usada com Gemini habilitado |
+| `GEMINI_API_KEY` | Opcional; usada na IA manual ou na assistência automática autorizada |
 
 E-mail destinatário e chat ID pertencem ao perfil de cada conta no Neon; não precisam de Secrets separadas no workflow.
 
@@ -68,6 +68,14 @@ E-mail destinatário e chat ID pertencem ao perfil de cada conta no Neon; não p
 | `GEMINI_ENABLED` | `false` | IA opcional |
 | `GEMINI_MODEL` | `gemini-3.1-flash-lite` | Modelo para IA |
 | `GEMINI_SEARCH_MODEL` | vazio | Modelo de pesquisa; vazio usa o anterior |
+| `AUTO_SOURCE_ROUTING` | `true` | Permite escolher fontes alternativas no modo automático |
+| `GEMINI_AUTO_FALLBACK` | `false` | Padrão da permissão para assistência automática; painel salva no Neon |
+| `GEMINI_AUTO_MODEL` | `gemini-3.1-flash-lite` | Assistência com dados conhecidos, sem Google Search |
+| `GEMINI_AUTO_SEARCH_MODEL` | vazio | Pesquisa automática desativada; 2.5 apenas para projetos elegíveis |
+| `GEMINI_USER_DAILY_LIMIT` | `2` | Teto diário Gemini por pessoa |
+| `GEMINI_GLOBAL_DAILY_LIMIT` | `6` | Teto diário Gemini compartilhado |
+| `GEMINI_MONTHLY_LIMIT` | `60` | Teto mensal Gemini compartilhado |
+| `GEMINI_DAILY_TOKEN_BUDGET` | `100000` | Reserva conservadora de entrada/saída diária compartilhada |
 | `JOB_KEYWORDS` | `product engineer;production engineer;engenheiro de produto` | Até três termos padrão |
 | `JOB_PROFILE` | `both` | `product`, `production`, `both` ou `custom` |
 | `MIN_SALARY_BRL` | `7000` | Piso mensal em reais |
@@ -76,7 +84,7 @@ E-mail destinatário e chat ID pertencem ao perfil de cada conta no Neon; não p
 | `MAX_JOBS` | `100` | Máximo de vagas aprovadas por pessoa/execução |
 | `WEB_MAX_MARKET_QUERIES` | `6` | Teto de consultas Jooble por busca |
 
-Limites alterados pela administração no painel ficam no Neon e têm prioridade sobre os padrões SerpAPI do ambiente. As Secrets do Actions têm prioridade sobre as credenciais compartilhadas no banco: se mudar uma chave pelo painel, atualize também a Secret correspondente. Não altere os padrões de personalização esperando substituir preferências já salvas.
+Limites SerpAPI/Gemini e permissão Gemini alterados pela administração no painel ficam no Neon e têm prioridade sobre os padrões do ambiente. As Secrets do Actions têm prioridade sobre as credenciais compartilhadas no banco: se mudar uma chave pelo painel, atualize também a Secret correspondente. Não altere os padrões de personalização esperando substituir preferências já salvas.
 
 O script opcional `scripts/setup_github.py` usa o login Git existente e criptografa as Secrets antes de enviá-las. Requer `python -m pip install PyNaCl`. Preserva Secrets existentes, exceto a SerpAPI fornecida para configuração; nunca exibe os valores. `DATABASE_URL` é cadastrada manualmente no GitHub.
 
@@ -91,7 +99,13 @@ Cotas Jooble padrão: **12 por usuário/dia, 36 compartilhadas/dia e 6 por chave
 
 SerpAPI: **até 3 novas consultas por dia e 250 por mês**, compartilhadas entre painel e automação, incluindo paginação, tentativas com erro e respostas vazias. Três consultas em 22 dias úteis equivalem a aproximadamente 66 consultas, deixando margem. O contador usa mês civil de São Paulo: confira o ciclo e consumo da conta no provedor e registre uso externo no painel. [Plano gratuito SerpAPI](https://serpapi.com/pricing).
 
-Quando a cota acaba, **Explorar sem Jooble** oferece histórico, favoritos, sites de empresas e links de pesquisa no Google e LinkedIn sem consumir a API Jooble nem Gemini. Outras fontes selecionadas seguem com seus próprios limites; a aplicação não liga Gemini automaticamente. Anúncios podem encerrar: confira o original. Termos em outros idiomas ampliam a busca, mas nenhuma fonte garante todas as vagas do mundo. [Detalhes de uso](docs/usage.md).
+Em **Explorar vagas**, **Escolher alternativas automaticamente** prioriza as fontes selecionadas, tenta cache de 24 horas mesmo com cota esgotada e procura empresas, Jooble ou Google Jobs disponíveis quando a fonte falha, está limitada ou não retorna vagas compatíveis. Para economizar, encerra a troca ao encontrar oportunidades aprovadas ou para análise. Desmarque a opção para consultar todas as fontes selecionadas como antes. Não muda país, perfil ou salário para contornar limites.
+
+Se nenhuma fonte trouxer oportunidades, o painel mostra atividades e vagas anteriores da própria pessoa, separadas dos novos alertas. Em **Integrações → Proteção Gemini**, a administração pode permitir que o Gemini organize essas atividades automaticamente: até **2 chamadas por pessoa/dia, 6 compartilhadas/dia e 60 compartilhadas/mês**, com cache privado, reserva de tokens e pausa após erros. Chamadas manuais também contam. Sem chave, permissão ou saldo, as atividades continuam disponíveis sem IA. O botão **Explorar sem Jooble** mantém as sugestões sem chamar IA.
+
+A assistência automática padrão usa dados conhecidos, sem pesquisa Google. O Google Search nos modelos Gemini atuais não tem nível gratuito na API; `GEMINI_AUTO_SEARCH_MODEL` fica vazio. A pesquisa automática só aceita modelos 2.5 cujo projeto já tenha acesso ao recurso gratuito. Confira disponibilidade e cotas no seu projeto; a aplicação não ativa faturamento nem contrata planos, mas limites internos não substituem o controle de cobrança do provedor. [Preços Gemini](https://ai.google.dev/gemini-api/docs/pricing), [disponibilidade dos modelos](https://ai.google.dev/gemini-api/docs/deprecations).
+
+A próxima busca ou execução agendada reavalia recursos e volta à fonte prioritária quando disponível; não há processo contínuo esperando a renovação. Anúncios antigos podem encerrar: confira o original. Termos em outros idiomas ampliam a busca, mas nenhuma fonte garante todas as vagas do mundo. [Detalhes de uso](docs/usage.md).
 
 No site público, buscas têm um prazo de 240 segundos para reservar tempo de gravação antes do limite da função. Resultados de fontes concluídas ficam salvos; se o prazo acabar, as notas e sugestões orientam uma busca mais específica. Uma interrupção forçada da plataforma pode impedir a gravação; após seis minutos, buscas ainda pendentes aparecem como interrompidas, sem afetar buscas de outras contas.
 
