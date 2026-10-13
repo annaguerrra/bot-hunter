@@ -30,6 +30,10 @@ A primeira conta é administradora. Contas seguintes têm contatos, preferência
 
 **Histórico → Por busca** exibe prévias, contagens e todos os resultados de cada pesquisa ao expandir. **Histórico → Todas as vagas** reúne as oportunidades da própria conta em um catálogo deduplicado, com paginação e filtro de salário. As duas abas consultam apenas dados salvos, preservando as cotas; anúncios antigos devem ser conferidos no site original. A interface ajusta navegação, formulários e cartões para celular, tablet e computador. [Detalhes de contas e histórico](docs/accounts.md).
 
+**Empresas → Descobrir empresas** oferece 15 novas integrações opcionais em SmartRecruiters, Greenhouse, Lever e Ashby, além das cinco iniciais e três páginas externas. Filtre e cadastre em lote; cadastrar ou abrir o catálogo não inicia pesquisas. Até 100 empresas por pessoa, com seleção explícita e limite padrão de dez por busca. [Portais, validação e limites](docs/verified-companies.md).
+
+**Explorar sem gastar Jooble → Buscar nas empresas selecionadas** usa somente portais públicos, com cache de 12 horas, sem fallback para Jooble, SerpAPI ou Gemini. **Central de Carreira** reúne dez orientações de LinkedIn, currículo, entrevistas e networking, checklist privado e rascunho STAR. Todos continuam acessíveis com cotas esgotadas. [Uso e cotas](docs/usage.md) · [Fontes e atualização de dicas](docs/career.md).
+
 ## Automação no GitHub
 
 O workflow [job-alerts.yml](.github/workflows/job-alerts.yml) executa **de segunda a sexta-feira, às 9h17 de Brasília**, com `timezone: America/Sao_Paulo`. O GitHub pode atrasar o início; o horário não é uma garantia de execução no minuto exato. [Documentação de agendamentos](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
@@ -85,6 +89,7 @@ E-mail destinatário e chat ID pertencem ao perfil de cada conta no Neon; não p
 | `JOB_LOCATION` | vazio | Cidade padrão |
 | `MAX_JOBS` | `100` | Máximo de vagas aprovadas por pessoa/execução |
 | `WEB_MAX_MARKET_QUERIES` | `6` | Teto de consultas Jooble por busca |
+| `COMPANY_SEARCH_LIMIT` | `10` | Empresas efetivamente consultadas por execução (1 a 20); opcional também no Vercel |
 
 Limites SerpAPI/Gemini e permissão Gemini alterados pela administração no painel ficam no Neon e têm prioridade sobre os padrões do ambiente. As Secrets do Actions têm prioridade sobre as credenciais compartilhadas no banco: se mudar uma chave pelo painel, atualize também a Secret correspondente. Não altere os padrões de personalização esperando substituir preferências já salvas.
 
