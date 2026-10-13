@@ -1,6 +1,6 @@
 """Cota SerpAPI compartilhada, persistente e renovada por mês civil."""
 import os
-import time
+from datetime import datetime, timedelta
 from .database import connection
 from .usage import BudgetExceeded
 
@@ -10,7 +10,7 @@ class GoogleBudget:
         self.usage = usage
 
     def snapshot(self):
-        day, _ = self.usage.date_info()
+        day, reset = self.usage.date_info()
         month = day[:7]
         with connection(self.usage.path, self.usage.database_url) as db:
             settings = {row['name']: row['value'] for row in db.execute("SELECT name,value FROM settings WHERE name LIKE 'serp_%'")}
@@ -21,11 +21,13 @@ class GoogleBudget:
         monthly_limit = max(1, min(int(settings.get('serp_monthly_limit', os.getenv('SERPAPI_MONTHLY_LIMIT', '250'))), 250))
         used_daily, used_monthly = daily['count'] if daily else 0, monthly['count'] if monthly else 0
         used_monthly += prior['count'] if prior else 0
+        next_month = (datetime.fromisoformat(reset).replace(day=28) + timedelta(days=4)).replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
         return {'month': month, 'daily_limit': daily_limit, 'monthly_limit': monthly_limit,
                 'used_today': used_daily, 'used_month': used_monthly,
                 'remaining_today': max(0, min(daily_limit - used_daily, monthly_limit - used_monthly)),
                 'remaining_month': max(0, monthly_limit - used_monthly),
                 'blocked_until': float(settings.get('serp_blocked_until', '0')),
+                'resets_at': next_month if used_monthly >= monthly_limit else reset,
                 'note': 'Cota compartilhada entre painel e automação. Consultas anteriores fora da aplicação precisam ser ajustadas pela administração.'}
 
     def reserve(self):
@@ -34,7 +36,7 @@ class GoogleBudget:
         with connection(self.usage.path, self.usage.database_url) as db:
             db.execute('BEGIN IMMEDIATE')
             saved = {row['name']: row['value'] for row in db.execute("SELECT name,value FROM settings WHERE name LIKE 'serp_%'")}
-            if float(saved.get('serp_blocked_until', '0')) > time.time():
+            if float(saved.get('serp_blocked_until', '0')) > self.usage.clock():
                 raise BudgetExceeded('Google Empregos está em pausa após limitar requisições. Use vagas salvas e páginas de empresas.')
             daily_limit = max(1, min(int(saved.get('serp_daily_limit', os.getenv('SERPAPI_DAILY_LIMIT', '3'))), 250))
             monthly_limit = max(1, min(int(saved.get('serp_monthly_limit', os.getenv('SERPAPI_MONTHLY_LIMIT', '250'))), 250))
@@ -49,7 +51,7 @@ class GoogleBudget:
     def pause(self, seconds=3600):
         with connection(self.usage.path, self.usage.database_url) as db:
             db.execute('INSERT INTO settings VALUES(?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value',
-                       ('serp_blocked_until', str(time.time() + max(60, min(seconds, 86400)))))
+                       ('serp_blocked_until', str(self.usage.clock() + max(60, min(seconds, 86400)))))
 
     def configure(self, daily, monthly, prior=None):
         if type(daily) is not int or type(monthly) is not int or not 1 <= daily <= 250 or not 1 <= monthly <= 250:
