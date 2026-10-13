@@ -14,6 +14,7 @@
   <script src="/static/onboarding.js" defer></script>
   <script src="/static/app.js" defer></script>
   <script src="/static/development.js" defer></script>
+  <script src="/static/preferences.js" defer></script>
 </head>
 <body>
 <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -65,7 +66,7 @@
         <form id="search-form">
           <label for="profile">Área de engenharia</label><select id="profile"><option value="both">Produto e produção</option><option value="product">Produto / desenvolvimento / projeto mecânico</option><option value="production">Produção / manufatura / processos industriais</option><option value="custom">Termos personalizados</option></select>
           <label for="keywords">Cargo ou palavras-chave</label><textarea id="keywords" rows="2" placeholder="product engineer;engenheiro de produto" required maxlength="300"></textarea><p class="field-help">Até 3 termos separados por ;. Os perfis de engenharia ampliam os termos com sinônimos e idiomas locais.</p>
-          <label for="salary-min">Salário mínimo · R$ por mês</label><input id="salary-min" type="number" min="7000" max="1000000" value="7000" step="100" required><p class="field-help">Outras moedas são convertidas para reais. Salário ausente ou incerto fica separado para análise, sem alerta. Para outros ramos, escolha o perfil personalizado e defina seu mínimo.</p>
+          <fieldset class="salary-range"><legend>Pretensão salarial · R$ por mês</legend><div class="salary-range-inputs"><div><label for="salary-min">Mínimo</label><input id="salary-min" type="number" min="7000" max="1000000" value="7000" step="100" required></div><div><label for="salary-max">Máximo <span class="optional">opcional</span></label><input id="salary-max" type="number" min="7000" max="1000000" placeholder="Sem teto" step="100"></div></div></fieldset><p class="field-help">A busca aceita o piso publicado dentro da faixa, não um valor exato. Sem máximo, não há teto. Outras moedas são convertidas para reais; salário incerto fica para análise. Engenharia mantém o mínimo de R$ 7.000.</p>
           <label for="region">Região do mundo</label><select id="region"><option value="">Mundo todo</option></select>
           <label for="country">País</label><select id="country"><option value="">Todos os países</option></select>
           <label for="state">Estado / província</label><select id="state" disabled><option value="">Selecione um país primeiro</option></select>
@@ -106,7 +107,17 @@
   <section id="view-companies" class="view hidden"><div class="page-heading"><span class="eyebrow">SUAS PRÓXIMAS POSSIBILIDADES</span><h1>Empresas no seu radar.</h1><p>Cadastre uma página de carreiras e encontre vagas direto na fonte.</p></div>{% include 'discovery_panel.html' %}<div class="company-layout"><div><div id="companies-list" class="companies-list"></div></div><form id="company-form" class="surface add-company"><div class="form-icon"><svg><use href="#i-building"/></svg></div><h2>Adicionar uma empresa</h2><p>Vamos identificar a plataforma de vagas automaticamente.</p><label for="company-name">Nome da empresa</label><input id="company-name" placeholder="Ex.: Bosch" required maxlength="80"><label for="company-url">Página de carreiras</label><input id="company-url" type="url" placeholder="https://careers.empresa.com" required maxlength="1000"><button type="submit" class="button primary"><svg><use href="#i-plus"/></svg>Adicionar ao radar</button><p class="field-help">SmartRecruiters, Greenhouse, Lever e Ashby têm integração direta. Outros sites são consultados por seus anúncios públicos estruturados; a compatibilidade varia por site.</p></form></div></section>
 
   {% include 'career_panel.html' %}
-  <section id="view-favorites" class="view hidden"><div class="page-heading"><span class="eyebrow">GUARDE O QUE FAZ SENTIDO</span><h1>Seus próximos passos, salvos.</h1><p>As oportunidades que você quer olhar com mais calma.</p></div><div id="favorites-list" class="jobs-list"></div></section>
+  <section id="view-favorites" class="view hidden"><div class="page-heading"><span class="eyebrow">GUARDE O QUE FAZ SENTIDO</span><h1>Seus próximos passos, salvos.</h1><p>As oportunidades que você quer olhar com mais calma.</p></div>
+    <div class="surface favorites-filters"><div class="favorites-filter-grid">
+      <div><label for="favorites-query">Cargo, empresa ou cidade</label><input id="favorites-query" type="search" placeholder="Buscar nas vagas salvas" maxlength="200"></div>
+      <div><label for="favorites-country">País</label><select id="favorites-country"><option value="">Todos os países</option></select></div>
+      <div><label for="favorites-salary">Salário</label><select id="favorites-salary"><option value="">Todos os salários</option><option value="eligible">Aprovado na busca</option><option value="review">Para análise</option></select></div>
+      <div><label for="favorites-work">Modalidade</label><select id="favorites-work"><option value="">Todas as modalidades</option><option value="remote">Remoto confirmado</option><option value="other">Demais vagas</option></select></div>
+      <div><label for="favorites-source">Fonte</label><select id="favorites-source"><option value="">Todas as fontes</option></select></div>
+      <div><label for="favorites-order">Ordenar</label><select id="favorites-order"><option value="saved">Ordem das salvas</option><option value="newest">Publicação mais recente</option><option value="company">Empresa</option><option value="salary">Maior piso mensal</option></select></div>
+    </div><div class="favorites-filter-footer"><p id="favorites-summary" role="status" aria-live="polite"></p><button id="favorites-reset" class="text-button" type="button">Limpar filtros</button></div></div>
+    <div id="favorites-list" class="jobs-list"></div>
+  </section>
 
   <section id="view-history" class="view hidden"><div class="page-heading"><span class="eyebrow">SEU RADAR, AO LONGO DO TEMPO</span><h1>Histórico de oportunidades</h1><p>Confira resultados anteriores e reúna as vagas encontradas, sem gastar novas consultas.</p></div>
     <div id="history-tabs" class="view-tabs" role="tablist" aria-label="Histórico"><button id="history-searches-tab" role="tab" aria-selected="true" aria-controls="history-searches-panel" data-history-tab="searches" class="active">Por busca</button><button id="history-jobs-tab" role="tab" aria-selected="false" tabindex="-1" aria-controls="history-jobs-panel" data-history-tab="jobs">Todas as vagas</button></div>

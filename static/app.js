@@ -7,6 +7,10 @@ state.historyTab = 'searches';
 state.historyResults = new Map();
 state.catalog = {jobs: [], total: 0, offset: 0, limit: 40};
 state.catalogVersion = 0;
+// Cada anúncio mantém uma fila curta: o último clique prevalece, sem gravações concorrentes.
+state.favoriteChanges = new Map();
+state.favoriteVersion = 0;
+const favoriteKey = (job) => job.canonical_id || job.id;
 const money = (value) => Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 let csrf = $('meta[name="hunter-csrf"]').content;
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
@@ -77,7 +81,7 @@ function filters() {
     company_ids: state.config.companies.filter((company) => company.enabled && (!state.companySelection || state.companySelection.has(company.id))).map((company) => company.id),
     strict_title: $("#strict-title").checked, remote: $("#remote-only").checked,
     excluded: $("#excluded").value, pages: Number($("#pages").value), profile: $("#profile").value,
-    salary_min: Number($("#salary-min").value), multilingual: $("#multilingual").checked, jooble_count: Number($('#jooble-count').value), auto_sources: $('#auto-sources').checked, free_exploration: $('#free-exploration').checked };
+    salary_min: Number($("#salary-min").value), salary_max: $('#salary-max').value.trim() ? Number($('#salary-max').value) : null, multilingual: $("#multilingual").checked, jooble_count: Number($('#jooble-count').value), auto_sources: $('#auto-sources').checked, free_exploration: $('#free-exploration').checked };
 }
 
 function updateGoogleLink() {
@@ -89,6 +93,7 @@ function updateGoogleLink() {
 
 async function refreshConfig() {
   state.config = await api("/api/config");
+  if (typeof initGuidedSetup === 'function') initGuidedSetup();
   $('#auto-sources').disabled = !state.config.automatic_enabled;
   if (!state.config.automatic_enabled) $('#auto-sources').checked = false;
   $('#workspace-name').textContent = state.config.user.name;
@@ -150,7 +155,7 @@ function jobCard(job, savedView = false, searchIdentifier = state.searchId) {
   const eligible = check?.status === "eligible";
   const salaryLabel = eligible ? `${money(check.monthly_brl)}/mês · piso equivalente` : "Para análise · salário não confirmado";
   const evaluation = job.ai_assessment ? `Gemini: ${job.ai_assessment.score}/100 · ${job.ai_assessment.reason}` : job.match?.reason || "";
-  return `<article class="job-card" data-job-search="${esc(searchIdentifier)}"><div class="job-top"><span class="company-monogram">${esc((job.company || "?").slice(0, 2).toUpperCase())}</span><div class="job-title-wrap"><h3 class="job-title"><button data-job-detail="${job.id}">${esc(job.title)}</button></h3><div class="job-company">${esc(job.company || "Empresa não informada")}</div></div><button class="job-save${saved ? " saved" : ""}" data-job-save="${job.id}" aria-label="${saved ? "Remover vaga salva" : "Salvar vaga"}" aria-pressed="${saved}">${icon("heart")}</button></div><div class="job-meta"><span>${icon("pin")}${esc(location)}</span>${job.employment ? `<span>${icon("briefcase")}${esc(job.employment)}</span>` : ""}${job.salary ? `<span>${esc(job.salary)}</span>` : ""}</div><p class="salary-verdict${eligible ? "" : " pending"}">${esc(salaryLabel)}</p><p class="field-help">${esc(evaluation)}</p><div class="job-tags">${job.country_name ? `<span class="tag">${esc(job.country_name)}${job.country_basis === "consulta" ? " · país da busca" : ""}</span>` : ""}${job.remote ? '<span class="tag">Remoto</span>' : ""}${job.sources.map((source) => `<span class="tag source">${esc(source)}</span>`).join("")}</div><div class="job-bottom">${savedView || !eligible ? `<span class="job-date">${esc(date)}</span>` : `<label class="checkbox-label job-select"><input type="checkbox" data-job-select="${job.id}" ${state.selected.has(job.id) ? "checked" : ""}>Selecionar para alerta</label>`}<a class="job-apply" href="${esc(job.link)}" target="_blank" rel="noopener noreferrer">Ver oportunidade ${icon("external")}</a></div></article>`;
+  return `<article class="job-card" data-job-search="${esc(searchIdentifier)}"><div class="job-top"><span class="company-monogram">${esc((job.company || "?").slice(0, 2).toUpperCase())}</span><div class="job-title-wrap"><h3 class="job-title"><button data-job-detail="${job.id}">${esc(job.title)}</button></h3><div class="job-company">${esc(job.company || "Empresa não informada")}</div></div><button class="job-save${saved ? " saved" : ""}" data-job-save="${job.id}" data-favorite-key="${esc(favoriteKey(job))}" type="button" aria-label="${saved ? "Remover vaga salva" : "Salvar vaga"}" aria-pressed="${saved}">${icon("heart")}</button></div><div class="job-meta"><span>${icon("pin")}${esc(location)}</span>${job.employment ? `<span>${icon("briefcase")}${esc(job.employment)}</span>` : ""}${job.salary ? `<span>${esc(job.salary)}</span>` : ""}</div><p class="salary-verdict${eligible ? "" : " pending"}">${esc(salaryLabel)}</p><p class="field-help">${esc(evaluation)}</p><div class="job-tags">${job.country_name ? `<span class="tag">${esc(job.country_name)}${job.country_basis === "consulta" ? " · país da busca" : ""}</span>` : ""}${job.remote ? '<span class="tag">Remoto</span>' : ""}${job.sources.map((source) => `<span class="tag source">${esc(source)}</span>`).join("")}</div><div class="job-bottom">${savedView || !eligible ? `<span class="job-date">${esc(date)}</span>` : `<label class="checkbox-label job-select"><input type="checkbox" data-job-select="${job.id}" ${state.selected.has(job.id) ? "checked" : ""}>Selecionar para alerta</label>`}<a class="job-apply" href="${esc(job.link)}" target="_blank" rel="noopener noreferrer">Ver oportunidade ${icon("external")}</a></div></article>`;
 }
 
 function renderJobs() {
@@ -166,7 +171,7 @@ function renderJobs() {
 
 function renderReports(reports = []) {
   $("#source-reports").innerHTML = reports.map((report) => {
-    const summary = report.status === "ok" ? `${report.matched} com salário aprovado · ${report.review || 0} para análise · ${report.below_minimum || 0} abaixo do piso · ${report.received} recebidas` : report.status === "pending" ? "Configuração pendente" : report.status === "limited" ? "Limite atingido" : "Falha na consulta";
+    const summary = report.status === "ok" ? `${report.matched} com salário aprovado · ${report.review || 0} para análise · ${report.below_minimum || 0} abaixo do piso · ${report.above_maximum || 0} acima do teto · ${report.received} recebidas` : report.status === "pending" ? "Configuração pendente" : report.status === "limited" ? "Limite atingido" : "Falha na consulta";
     const notes = (report.notes || []).map((note) => `<p>${esc(note)}</p>`).join("");
     const queries = report.queries?.length ? `<p><strong>Termos consultados:</strong> ${report.queries.map(esc).join(" · ")}</p>` : "";
     return `<div class="source-report${report.status === "pending" ? " warning" : report.status === "error" ? " error" : ""}"><strong>${esc(report.name)} · ${summary}</strong>${notes || queries ? `<details${report.status !== "ok" ? " open" : ""}><summary>Detalhes da fonte e cobertura</summary>${notes}${queries}</details>` : ""}</div>`;
@@ -245,22 +250,99 @@ function updateSelection() {
 }
 
 async function loadFavorites() {
-  state.favorites = (await api("/api/favorites")).jobs;
-  $("#favorite-count").textContent = state.favorites.length;
-  $("#favorites-list").innerHTML = state.favorites.length ? state.favorites.map((job) => jobCard(job, true)).join("") : empty("Guarde as oportunidades que combinam com você.", "Clique no coração de uma vaga para encontrá-la aqui depois.", "heart");
+  const version = state.favoriteVersion;
+  const result = await api('/api/favorites');
+  // Uma leitura iniciada antes do clique não pode desfazer a resposta imediata da interface.
+  if (version === state.favoriteVersion && !state.favoriteChanges.size) state.favorites = result.jobs;
+  renderFavorites();
+  updateFavoriteButtons();
 }
 
-async function toggleFavorite(identifier, searchIdentifier = state.searchId) {
+function renderFavorites() {
+  const country = $('#favorites-country'), previous = country.value;
+  const countries = [...new Set(state.favorites.map((job) => job.country).filter(Boolean))];
+  country.innerHTML = '<option value="">Todos os países</option>' + countries.sort((a, b) => countryName(a).localeCompare(countryName(b))).map((code) => `<option value="${esc(code)}">${esc(countryName(code))}</option>`).join('');
+  country.value = countries.includes(previous) ? previous : '';
+  const sourceSelect = $('#favorites-source'), previousSource = sourceSelect.value;
+  const sources = [...new Set(state.favorites.flatMap((job) => job.sources))].sort();
+  sourceSelect.innerHTML = '<option value="">Todas as fontes</option>' + sources.map((source) => `<option value="${esc(source)}">${esc(source)}</option>`).join('');
+  sourceSelect.value = sources.includes(previousSource) ? previousSource : '';
+  const normalizeText = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+  const query = normalizeText($('#favorites-query').value.trim());
+  const status = $('#favorites-salary').value, work = $('#favorites-work').value, source = $('#favorites-source').value;
+  // Mantemos o cartão durante a gravação para permitir desfazer um clique imediatamente.
+  const pending = [...state.favoriteChanges.values()].filter((item) => item.confirmed && !item.desired).map((item) => item.job);
+  const jobs = [...state.favorites, ...pending].filter((job) =>
+    (!country.value || job.country === country.value) &&
+    (!query || normalizeText(`${job.title} ${job.company} ${job.location}`).includes(query)) &&
+    (!status || (job.salary_check?.status === 'eligible' ? 'eligible' : 'review') === status) &&
+    (!work || (work === 'remote' ? job.remote : !job.remote)) &&
+    (!source || job.sources.includes(source)));
+  const order = $('#favorites-order').value;
+  if (order === 'company') jobs.sort((a, b) => (a.company || '').localeCompare(b.company || ''));
+  if (order === 'newest') jobs.sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
+  if (order === 'salary') jobs.sort((a, b) => (b.salary_check?.monthly_brl || 0) - (a.salary_check?.monthly_brl || 0));
+  $('#favorite-count').textContent = state.favorites.length;
+  $('#favorites-summary').textContent = `${jobs.length} ${jobs.length === 1 ? 'vaga exibida' : 'vagas exibidas'} · ${state.favorites.length} ${state.favorites.length === 1 ? 'salva' : 'salvas'}. Filtrar não gasta consultas.`;
+  $('#favorites-list').innerHTML = jobs.length ? jobs.map((job) => jobCard(job, true, '')).join('') : empty(state.favorites.length ? 'Nenhuma vaga corresponde aos filtros.' : 'Guarde as oportunidades que combinam com você.', state.favorites.length ? 'Limpe os filtros para ver todas as vagas salvas.' : 'Clique uma vez no coração para guardar uma oportunidade.', 'heart');
+  updateFavoriteButtons();
+}
+
+function updateFavoriteButtons() {
+  $('#favorite-count').textContent = state.favorites.length;
+  $$('[data-job-save]').forEach((button) => {
+    const key = button.dataset.favoriteKey;
+    const saved = state.favorites.some((job) => favoriteKey(job) === key);
+    button.classList.toggle('saved', saved);
+    button.setAttribute('aria-pressed', String(saved));
+    button.setAttribute('aria-busy', String(state.favoriteChanges.has(key)));
+    button.setAttribute('aria-label', saved ? 'Remover vaga salva' : 'Salvar vaga');
+    button.title = saved ? 'Vaga salva · clique para remover' : 'Salvar vaga';
+  });
+}
+
+function toggleFavorite(identifier, searchIdentifier = state.searchId) {
   const historic = state.historyResults.get(searchIdentifier);
   const current = searchIdentifier && searchIdentifier === state.searchId ? state.jobs : state.catalog.jobs;
-  const job = [...(historic?.jobs || []), ...(historic?.review_jobs || []), ...current, ...state.favorites].find((item) => item.id === identifier);
+  const job = [...(historic?.jobs || []), ...(historic?.review_jobs || []), ...current, ...state.favorites, ...[...state.favoriteChanges.values()].map((item) => item.job)].find((item) => item.id === identifier);
   if (!job) return;
-  const saved = state.favorites.find((favorite) => favorite.id === identifier || (job.canonical_id && favorite.canonical_id === job.canonical_id));
-  await api(saved ? `/api/favorites/${saved.id}` : "/api/favorites", { method: saved ? "DELETE" : "POST", body: saved ? undefined : JSON.stringify({ id: identifier, search_id: searchIdentifier }) });
-  await loadFavorites();
-  if (state.searchId) renderJobs();
-  renderHistory(); renderCatalog();
-  toast(saved ? "Vaga removida das salvas." : "Oportunidade salva para olhar depois.");
+  const key = favoriteKey(job);
+  const saved = state.favorites.find((favorite) => favoriteKey(favorite) === key);
+  let change = state.favoriteChanges.get(key);
+  if (!change) {
+    change = {job: saved || job, searchIdentifier: saved ? '' : searchIdentifier, confirmed: Boolean(saved), desired: Boolean(saved), running: false};
+    state.favoriteChanges.set(key, change);
+  }
+  change.desired = !change.desired;
+  state.favoriteVersion++;
+  state.favorites = state.favorites.filter((favorite) => favoriteKey(favorite) !== key);
+  if (change.desired) state.favorites.push(change.job);
+  updateFavoriteButtons();
+  // Preservamos os botões sob o cursor e o foco enquanto os cliques são conciliados.
+  if (!change.running) void syncFavorite(key, change);
+}
+
+async function syncFavorite(key, change) {
+  change.running = true;
+  try {
+    while (change.confirmed !== change.desired) {
+      const desired = change.desired;
+      await api(desired ? '/api/favorites' : `/api/favorites/${encodeURIComponent(change.job.id)}`, {
+        method: desired ? 'POST' : 'DELETE', body: desired ? JSON.stringify({id: change.job.id, search_id: change.searchIdentifier}) : undefined,
+      });
+      change.confirmed = desired;
+    }
+    toast(change.confirmed ? 'Oportunidade salva.' : 'Vaga removida das salvas.');
+  } catch (error) {
+    state.favorites = state.favorites.filter((favorite) => favoriteKey(favorite) !== key);
+    if (change.confirmed) state.favorites.push(change.job);
+    toast(`Não foi possível salvar a alteração. ${error.message}`, true);
+  } finally {
+    state.favoriteVersion++;
+    state.favoriteChanges.delete(key);
+    updateFavoriteButtons();
+    renderFavorites();
+  }
 }
 
 function jobDetail(identifier, searchIdentifier = state.searchId) {
@@ -332,6 +414,7 @@ async function restoreFilters(saved) {
   $("#pages").value = String(saved.pages);
   $("#profile").value = saved.profile || "both";
   $("#salary-min").value = saved.salary_min ?? 7000;
+  $('#salary-max').value = saved.salary_max ?? '';
   updateSalaryFloor();
   $("#multilingual").checked = saved.multilingual !== false;
   $('#jooble-count').value = String(saved.jooble_count || 100);
@@ -540,6 +623,12 @@ document.addEventListener("change", (event) => {
   });
 });
 window.addEventListener("hashchange", () => guarded(navigate));
+$('#favorites-query').addEventListener('input', renderFavorites);
+['country', 'salary', 'work', 'source', 'order'].forEach((name) => $('#favorites-' + name).addEventListener('change', renderFavorites));
+$('#favorites-reset').addEventListener('click', () => {
+  ['query', 'country', 'salary', 'work', 'source'].forEach((name) => $('#favorites-' + name).value = '');
+  $('#favorites-order').value = 'saved'; renderFavorites();
+});
 
 function updateJoobleSignup() {
   const code = $("#jooble-country").value;
@@ -695,12 +784,15 @@ $('#usage-key-balances').addEventListener('submit', (event) => {
     toast('Saldo confirmado atualizado.');
   });
 });
-function updateSalaryFloor() {
+function updateSalaryFloor(clamp = false) {
   const minimum = $('#profile').value === 'custom' ? 0 : 7000;
   $('#salary-min').min = minimum;
-  if (Number($('#salary-min').value) < minimum) $('#salary-min').value = minimum;
+  if (clamp && Number($('#salary-min').value) < minimum) $('#salary-min').value = minimum;
+  $('#salary-max').min = $('#salary-min').value;
+  $('#salary-max').setCustomValidity($('#salary-max').value && Number($('#salary-max').value) < Number($('#salary-min').value) ? 'O máximo precisa ser igual ou maior que o mínimo.' : '');
 }
-$('#profile').addEventListener('change', updateSalaryFloor);
+$('#profile').addEventListener('change', () => updateSalaryFloor(true));
+['salary-min', 'salary-max'].forEach((id) => $('#' + id).addEventListener('input', () => updateSalaryFloor()));
 $('#logout').addEventListener('click', () => guarded(async () => { await api('/api/auth/logout', {method:'POST'}); location.replace('/'); }));
 
 async function loadProfile() {
@@ -713,7 +805,7 @@ async function loadProfile() {
   const labels = {queued:'Na fila', sending:'Enviando', sent:'Enviado', error:'Falhou; confira o serviço', uncertain:'Envio incerto; confira sua caixa de e-mail'};
   $('#email-queue-status').innerHTML = queue.batches.length ? queue.batches.map((batch) => `<p>${esc(labels[batch.status] || batch.status)} · ${batch.attempts} tentativa(s) ${['error','uncertain'].includes(batch.status) && batch.attempts < 3 ? `<button class="button" type="button" data-email-retry="${esc(batch.id)}">Confirmar nova tentativa</button>` : ''}</p>`).join('') : '<p>Nenhum e-mail na fila.</p>';
   const prefs = result.preferences;
-  $('#preferences-summary').textContent = prefs.keywords ? `${prefs.keywords.join(' / ')} · ${prefs.country ? countryName(prefs.country) : regionName(prefs.region)} · ${money(prefs.salary_min)} por mês` : 'Você ainda não salvou um padrão. Os filtros de engenharia estão disponíveis para começar.';
+  $('#preferences-summary').textContent = prefs.keywords ? `${prefs.keywords.join(' / ')} · ${prefs.country ? countryName(prefs.country) : regionName(prefs.region)} · ${money(prefs.salary_min)}${prefs.salary_max != null ? ' a ' + money(prefs.salary_max) : ' ou mais'} por mês` : 'Monte seu radar em Primeiros passos para receber sugestões e salvar seus filtros.';
 }
 $('#email-queue-status').addEventListener('click', (event) => {
   const button = event.target.closest('[data-email-retry]');

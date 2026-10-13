@@ -44,6 +44,7 @@ jobs:
           node --check static/app.js
           node --check static/onboarding.js
           node --check static/development.js
+          node --check static/preferences.js
           node tests/check_notifications.cjs
       - name: Recursos públicos do Vercel
         run: python scripts/build_vercel.py

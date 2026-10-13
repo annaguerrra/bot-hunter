@@ -1,0 +1,22 @@
+<form id="guided-setup" class="surface guided-setup">
+  <span class="section-kicker">COMECE PELO QUE VOCÊ PROCURA</span><h2>Vamos montar seu radar?</h2>
+  <p>Escolha suas preferências. Sugerimos os termos e salvamos os filtros para suas próximas visitas. Você pode ajustar tudo depois.</p>
+  <fieldset class="guided-area"><legend>1 · Qual área interessa a você?</legend><div class="guided-area-options">
+    <label><input type="radio" name="guided-area" value="production"><span><strong>Produção e manufatura</strong><small>Engenharia industrial e processos</small></span></label>
+    <label><input type="radio" name="guided-area" value="product"><span><strong>Produto e desenvolvimento</strong><small>Produto físico e projetos mecânicos</small></span></label>
+    <label><input type="radio" name="guided-area" value="both" checked><span><strong>As duas áreas</strong><small>Produto, produção e manufatura</small></span></label>
+    <label><input type="radio" name="guided-area" value="custom"><span><strong>Outra profissão</strong><small>Você informa os cargos desejados</small></span></label>
+  </div></fieldset>
+  <fieldset class="guided-destination"><legend>2 · Onde você quer trabalhar?</legend><div class="guided-fields">
+    <div><label for="guided-region">Região</label><select id="guided-region"><option value="">Mundo todo</option></select></div>
+    <div><label for="guided-country">País</label><select id="guided-country"><option value="">Todos os países</option></select></div>
+    <div><label for="guided-state">Estado / província <span class="optional">opcional</span></label><select id="guided-state" disabled><option value="">Escolha um país primeiro</option></select></div>
+    <div><label for="guided-city">Cidade <span class="optional">opcional</span></label><input id="guided-city" maxlength="100" placeholder="Ex.: Curitiba"></div>
+  </div><label class="checkbox-label"><input id="guided-remote" type="checkbox"><span>Quero somente vagas remotas</span></label><p class="field-help">Remoto respeita o destino escolhido. Para procurar no mundo, deixe região e país em Todos.</p></fieldset>
+  <fieldset><legend>3 · Qual sua pretensão salarial?</legend><div class="guided-fields salary-range-inputs">
+    <div><label for="guided-min">Mínimo mensal · R$</label><input id="guided-min" type="number" min="7000" max="1000000" value="7000" step="100" required></div>
+    <div><label for="guided-max">Máximo mensal · R$ <span class="optional">opcional</span></label><input id="guided-max" type="number" min="7000" max="1000000" step="100" placeholder="Sem teto"></div>
+  </div><p class="field-help">Comparamos o piso publicado com sua faixa. Outras moedas são convertidas. Salário não informado fica para análise; engenharia mantém o mínimo de R$ 7.000.</p></fieldset>
+  <div class="guided-preview"><label for="guided-keywords">Palavras-chave para seu radar</label><textarea id="guided-keywords" rows="2" maxlength="300" required placeholder="Até três cargos separados por ;"></textarea><p id="guided-suggestion" class="field-help" aria-live="polite"></p><button id="guided-regenerate" class="text-button" type="button">Usar termos sugeridos novamente</button></div>
+  <div class="guided-footer"><button class="button primary" type="submit">Salvar preferências e abrir meu radar</button><a href="#explore" class="button">Configurar depois</a></div><p id="guided-status" role="status" aria-live="polite" class="field-help">Salvar não consome consultas nem envia alertas.</p>
+</form>
